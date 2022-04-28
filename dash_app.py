@@ -136,21 +136,6 @@ def ROBOKOPsearch(start_nodes,end_nodes,nodes,edges,limit_results,contains_start
 #         result.to_csv(csv_fname, encoding="utf-8-sig", index=False)
     return result
 
-from dash import Dash, dash_table
-import time
-import dash_daq as daq
-from itertools import combinations, product
-from networkx.drawing.nx_pydot import graphviz_layout
-import matplotlib.pyplot as plt
-import numpy as np
-import networkx as nx
-import base64
-import io
-import py2neo
-from dash import dcc
-from dash import html
-from dash.dependencies import Output, Input, State
-
 app = dash.Dash()
 
 colors = {
