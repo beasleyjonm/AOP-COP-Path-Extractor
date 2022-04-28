@@ -1130,4 +1130,4 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
     return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table
 
 if __name__ == '__main__':
-    app.run_server()
+    app.run_server(host='0.0.0.0')
