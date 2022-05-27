@@ -10,9 +10,16 @@ import dash_daq as daq
 import numpy as np
 from dash.dependencies import Output, Input, State
 
-def ROBOKOPsearch(start_nodes,end_nodes,nodes,edges,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
-    
-    G = py2neo.Graph("bolt://robokopkg.renci.org")
+#Version 2
+#Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
+#Measured and it IS faster than Version 1.
+
+def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
+    if graph_db == "ROBOKOP":
+        link = "bolt://robokopkg.renci.org"
+    elif graph_db == "HetioNet":
+        link = "bolt://neo4j.het.io"
+    G = py2neo.Graph(link)
     limit = str(limit_results)
     robokop_output = {}
     results = {}
@@ -29,58 +36,29 @@ def ROBOKOPsearch(start_nodes,end_nodes,nodes,edges,limit_results,contains_start
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
                 robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
-                query = query + f"(n{i}{':`'+nodes[p][i]+'`' if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':`'+edges[p][i]+'`' if 'wildcard' not in edges[p][i] else ''}]-"
+                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
                 robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                 robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
-                query = query + f"(n{i}{':`'+nodes[p][i]+'`' if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':`'+edges[p][i]+'`' if 'wildcard' not in edges[p][i] else ''}]-"
+                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             else:
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
                 robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
-                query = query + f"(n{i}{':`'+nodes[p][i]+'`' if 'wildcard' not in nodes[p][i] else ''}) "
+                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
                 
         if start_end_matching == False:
-            for end in end_nodes:
-                que = query 
-                for start in start_nodes:
-                    que = query
-                    if "wildcard" in start and "wildcard" in end:
-                        que = que
-                    elif "wildcard" in start:
-                        que = que + f"WHERE n{k-1}.name = \"{end}\" "
-                    elif "wildcard" in end:
-                        que = que + f"WHERE n{0}.name = \"{start}\" "
-                    else:
-                        que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
-                    q = que
-                    for i in range(k):
-                        firstbracket = "{"
-                        secondbracket = "}"
-                        if i==0:
-                            q = q + f"CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i})+'`') AS esnd_n{i}_r{i}{secondbracket} "
-                        elif i>0 and i<(k-1):
-                            q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i-1})+'`') AS esnd_n{i}_r{i-1}{secondbracket} CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i})+'`') AS esnd_n{i}_r{i}{secondbracket} "
-                        else:
-                            q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i-1})+'`') AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
-
-                    for z in range(k):
-                        if z==0:
-                            q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
-                        elif z>0 and z<(k-1):
-                            q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
-                        else: 
-                            q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
-
-                    print(q+"\n")
-                    
-                    matches = G.run(q)
-                    for m in matches:
-                        l = 0
-                        for j in robokop_output:
-                            robokop_output[j].append(m[l])
-                            l += 1
+            que = query 
+            if "wildcard" in start_nodes and "wildcard" in end_nodes:
+                continue
+            elif "wildcard" in start_nodes:
+                que = que + f"WHERE n{k-1}.name IN {str(end_nodes)} "
+            elif "wildcard" in end_nodes:
+                que = que + f"WHERE n{0}.name IN {str(start_nodes)} "
+            else:
+                que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else 'IN'} {str(start_nodes)} AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else 'IN'} {str(end_nodes)} "
+            q = que
                             
         elif start_end_matching == True:
             for start, end in zip(start_nodes, end_nodes):
@@ -94,32 +72,34 @@ def ROBOKOPsearch(start_nodes,end_nodes,nodes,edges,limit_results,contains_start
                 else:
                     que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
                 q = que
-                for i in range(k):
-                    firstbracket = "{"
-                    secondbracket = "}"
-                    if i==0:
-                        q = q + f"CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i})+'`') AS esnd_n{i}_r{i}{secondbracket} "
-                    elif i>0 and i<(k-1):
-                        q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i-1})+'`') AS esnd_n{i}_r{i-1}{secondbracket} CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i})+'`') AS esnd_n{i}_r{i}{secondbracket} "
-                    else:
-                        q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, '`'+TYPE(r{i-1})+'`') AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
+        for i in range(k):
+            firstbracket = "{"
+            secondbracket = "}"
+            firstmark = f"'`'+"
+            secondmark = f"+'`'"
+            if i==0:
+                q = q + f"CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
+            elif i>0 and i<(k-1):
+                q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
+            else:
+                q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
 
-                for z in range(k):
-                    if z==0:
-                        q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
-                    elif z>0 and z<(k-1):
-                        q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
-                    else: 
-                        q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
+        for z in range(k):
+            if z==0:
+                q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
+            elif z>0 and z<(k-1):
+                q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
+            else: 
+                q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
 
-                print(q+"\n")
-                
-                matches = G.run(q)
-                for m in matches:
-                    l = 0
-                    for j in robokop_output:
-                        robokop_output[j].append(m[l])
-                        l += 1
+        print(q+"\n")
+
+        matches = G.run(q)
+        for m in matches:
+            l = 0
+            for j in robokop_output:
+                robokop_output[j].append(m[l])
+                l += 1
 
         robokop_output.update({"path":p})
         frames.append(pd.DataFrame(data=robokop_output))
@@ -173,14 +153,12 @@ kg_dropdown = dcc.Dropdown(id="kg-dropdown",
            clearable=False)
 
 source_dropdown = dcc.Dropdown(id="source-dropdown",
-           options=[
-           {'label':x, 'value':x} for x in rk_nodes],
+           options=[{'label':x, 'value':x} for x in rk_nodes],
            value="biolink:ChemicalEntity",
            clearable=False)
 
 tail_dropdown = dcc.Dropdown(id="tail-dropdown",
-           options=[
-           {'label':x, 'value':x} for x in rk_nodes],
+           options=[{'label':x, 'value':x} for x in rk_nodes],
            value="biolink:DiseaseOrPhenotypicFeature",
            clearable=False)
 
@@ -188,19 +166,20 @@ node_drop = dcc.Dropdown(id="node-dropdown",
     options=[{'label':x, 'value':x} for x in rk_nodes],
    multi=False
 )
+
 #Adds a button to check whether names entered into Start and End are matched with search terms in ROBOKOP 
 #and a markdown component to display terms that dont match
-term_map_button = html.Button('Check for Terms in ROBOKOP', id='term-map-val', n_clicks=0)
+term_map_button = html.Button('Check for Terms in Knowledge Graph', id='term-map-val', n_clicks=0)
 
 start_map_output = html.Div([
-    html.Div(html.B(children='Starting Terms Mapped to ROBOKOP:\n')),
+    html.Div(html.B(children='Starting Terms Mapped to Knowledge Graph:\n')),
     dcc.Textarea(
         id='start-map-output',
         style={'width': '20%', 'height': 140, 'width': 300})],
     id='start-map-div',style={'display': 'None'})
 
 end_map_output = html.Div([
-    html.Div(html.B(children='Ending Terms Mapped to ROBOKOP:\n')),
+    html.Div(html.B(children='Ending Terms Mapped to Knowledge Graph:\n')),
     dcc.Textarea(
         id='end-map-output',
         style={'width': '20%', 'height': 140, 'width': 300})],
@@ -274,6 +253,7 @@ tail_edge = dcc.Dropdown(
    style={'display':'None'}
 )
 
+
 all_k_selects = []
 for i in range(1,11):
     k_select = daq.NumericInput(
@@ -295,7 +275,7 @@ Aldicarb
 Pyrene
 Tricresyl phosphate''',
         placeholder="Leave blank to include *any* start entities...",
-        style={'width': '20%', 'height': 140, 'width': 300},
+        style={'width': '20%', 'height': 140, 'width': 300}
 )])
 
 ends = html.Div([
@@ -417,6 +397,245 @@ def checkToBool(show_edge):
     if(len(show_edge)==1): return True
     else: return False
     
+@app.callback(
+    Output("source-dropdown",'value'),
+    Output("source-dropdown",'options'),
+    Output("tail-dropdown",'value'),
+    Output("tail-dropdown",'options'),
+    Output("node-dropdown-1-1",'options'),
+    Output("node-dropdown-1-2",'options'),
+    Output("node-dropdown-1-3",'options'),
+    Output("node-dropdown-1-4",'options'),
+    Output("node-dropdown-1-5",'options'),
+    Output("node-dropdown-2-1",'options'),
+    Output("node-dropdown-2-2",'options'),
+    Output("node-dropdown-2-3",'options'),
+    Output("node-dropdown-2-4",'options'),
+    Output("node-dropdown-2-5",'options'),
+    Output("node-dropdown-3-1",'options'),
+    Output("node-dropdown-3-2",'options'),
+    Output("node-dropdown-3-3",'options'),
+    Output("node-dropdown-3-4",'options'),
+    Output("node-dropdown-3-5",'options'),
+    Output("node-dropdown-4-1",'options'),
+    Output("node-dropdown-4-2",'options'),
+    Output("node-dropdown-4-3",'options'),
+    Output("node-dropdown-4-4",'options'),
+    Output("node-dropdown-4-5",'options'),
+    Output("node-dropdown-5-1",'options'),
+    Output("node-dropdown-5-2",'options'),
+    Output("node-dropdown-5-3",'options'),
+    Output("node-dropdown-5-4",'options'),
+    Output("node-dropdown-5-5",'options'),
+    Output("node-dropdown-6-1",'options'),
+    Output("node-dropdown-6-2",'options'),
+    Output("node-dropdown-6-3",'options'),
+    Output("node-dropdown-6-4",'options'),
+    Output("node-dropdown-6-5",'options'),
+    Output("node-dropdown-7-1",'options'),
+    Output("node-dropdown-7-2",'options'),
+    Output("node-dropdown-7-3",'options'),
+    Output("node-dropdown-7-4",'options'),
+    Output("node-dropdown-7-5",'options'),
+    Output("node-dropdown-8-1",'options'),
+    Output("node-dropdown-8-2",'options'),
+    Output("node-dropdown-8-3",'options'),
+    Output("node-dropdown-8-4",'options'),
+    Output("node-dropdown-8-5",'options'),
+    Output("node-dropdown-9-1",'options'),
+    Output("node-dropdown-9-2",'options'),
+    Output("node-dropdown-9-3",'options'),
+    Output("node-dropdown-9-4",'options'),
+    Output("node-dropdown-9-5",'options'),
+    Output("node-dropdown-10-1",'options'),
+    Output("node-dropdown-10-2",'options'),
+    Output("node-dropdown-10-3",'options'),
+    Output("node-dropdown-10-4",'options'),
+    Output("node-dropdown-10-5",'options'),
+    Output("edge-dropdown-1-1",'options'),
+    Output("edge-dropdown-1-2",'options'),
+    Output("edge-dropdown-1-3",'options'),
+    Output("edge-dropdown-1-4",'options'),
+    Output("edge-dropdown-1-5",'options'),
+    Output("edge-dropdown-2-1",'options'),
+    Output("edge-dropdown-2-2",'options'),
+    Output("edge-dropdown-2-3",'options'),
+    Output("edge-dropdown-2-4",'options'),
+    Output("edge-dropdown-2-5",'options'),
+    Output("edge-dropdown-3-1",'options'),
+    Output("edge-dropdown-3-2",'options'),
+    Output("edge-dropdown-3-3",'options'),
+    Output("edge-dropdown-3-4",'options'),
+    Output("edge-dropdown-3-5",'options'),
+    Output("edge-dropdown-4-1",'options'),
+    Output("edge-dropdown-4-2",'options'),
+    Output("edge-dropdown-4-3",'options'),
+    Output("edge-dropdown-4-4",'options'),
+    Output("edge-dropdown-4-5",'options'),
+    Output("edge-dropdown-5-1",'options'),
+    Output("edge-dropdown-5-2",'options'),
+    Output("edge-dropdown-5-3",'options'),
+    Output("edge-dropdown-5-4",'options'),
+    Output("edge-dropdown-5-5",'options'),
+    Output("edge-dropdown-6-1",'options'),
+    Output("edge-dropdown-6-2",'options'),
+    Output("edge-dropdown-6-3",'options'),
+    Output("edge-dropdown-6-4",'options'),
+    Output("edge-dropdown-6-5",'options'),
+    Output("edge-dropdown-7-1",'options'),
+    Output("edge-dropdown-7-2",'options'),
+    Output("edge-dropdown-7-3",'options'),
+    Output("edge-dropdown-7-4",'options'),
+    Output("edge-dropdown-7-5",'options'),
+    Output("edge-dropdown-8-1",'options'),
+    Output("edge-dropdown-8-2",'options'),
+    Output("edge-dropdown-8-3",'options'),
+    Output("edge-dropdown-8-4",'options'),
+    Output("edge-dropdown-8-5",'options'),
+    Output("edge-dropdown-9-1",'options'),
+    Output("edge-dropdown-9-2",'options'),
+    Output("edge-dropdown-9-3",'options'),
+    Output("edge-dropdown-9-4",'options'),
+    Output("edge-dropdown-9-5",'options'),
+    Output("edge-dropdown-10-1",'options'),
+    Output("edge-dropdown-10-2",'options'),
+    Output("edge-dropdown-10-3",'options'),
+    Output("edge-dropdown-10-4",'options'),
+    Output("edge-dropdown-10-5",'options'),
+    Output("tail-edge",'options'), 
+    Input("kg-dropdown", 'value')
+)
+def getNodeAndEdgeLabels(graph_db):
+    if graph_db == "ROBOKOP":
+        link = "bolt://robokopkg.renci.org"
+        starter = "biolink:ChemicalEntity"
+        ender = "biolink:DiseaseOrPhenotypicFeature"
+    elif graph_db == "HetioNet":
+        link = "bolt://neo4j.het.io"
+        starter = "Compound"
+        ender = "Disease"
+    G = py2neo.Graph(link)
+    rk_nodes=[]
+    rk_edges=[]
+    query_1 = f"call db.labels"
+    matches_1 = G.run(query_1)
+    for m in matches_1:
+        rk_nodes.append(m[0])
+    query_2 = f"call db.relationshipTypes"
+    matches_2 = G.run(query_2)
+    for m in matches_2:
+        rk_edges.append(m[0])
+    rk_nodes.sort()
+    rk_edges.sort()
+    node_options = [{'label':x, 'value':x} for x in rk_nodes]
+    edge_options = [{'label':x, 'value':x} for x in rk_edges]
+    print(node_options)
+    return (starter, 
+            node_options,
+            ender,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            node_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options,
+            edge_options)
+
 @app.callback(
     [Output("selector-1",'style'),
     Output("selector-2",'style'),
@@ -789,6 +1008,7 @@ def processInputText(text):
     Output('dwpc-weight-select', 'style')],
     Input('submit-val', 'n_clicks'),
     [
+        State("kg-dropdown", 'value'),
         State('starts', 'value'),
         State('ends','value'),
         State("source-dropdown", 'value'), 
@@ -918,7 +1138,7 @@ def processInputText(text):
         State('pattern-name-10', 'value')
     ]
 )
-def submit_path_search(n_clicks,start_node_text,
+def submit_path_search(n_clicks,graph_db,start_node_text,
         end_node_text,s,t,t_edges,show_edges, pattern_select,
         k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes,
         k1_1_edges,k1_2_edges,k1_3_edges,k1_4_edges,k1_5_edges,
@@ -984,23 +1204,32 @@ def submit_path_search(n_clicks,start_node_text,
     i=0
     for pattern in pattern_names:
         if i < pattern_select:
-            k_nodes = [s,all_k_nodes[pattern][0],all_k_nodes[pattern][1],all_k_nodes[pattern][2],all_k_nodes[pattern][3],all_k_nodes[pattern][4],t]
-            clean_k_nodes = ['wildcard' if x is None else x for x in k_nodes]
-            searched_nodes = {pattern:clean_k_nodes[:k_values[i]+1]+[t]}
+            if graph_db == "ROBOKOP":
+                k_nodes = [f"`{s}`",f"`{all_k_nodes[pattern][0]}`",f"`{all_k_nodes[pattern][1]}`",f"`{all_k_nodes[pattern][2]}`",f"`{all_k_nodes[pattern][3]}`",f"`{all_k_nodes[pattern][4]}`",f"`{t}`"]
+                clean_k_nodes = ['wildcard' if x == "`None`" else x for x in k_nodes]
+            else:
+                k_nodes = [s,all_k_nodes[pattern][0],all_k_nodes[pattern][1],all_k_nodes[pattern][2],all_k_nodes[pattern][3], all_k_nodes[pattern][4],t]
+                clean_k_nodes = ['wildcard' if x is None else x for x in k_nodes]
+            searched_nodes = {pattern:clean_k_nodes[:k_values[i]+1]+[clean_k_nodes[-1]]}
             print(searched_nodes)
             searched_nodes_dict.update(searched_nodes)
             if edges_bool == True:
-                k_edges = [all_k_edges[pattern][0],all_k_edges[pattern][1],all_k_edges[pattern][2],all_k_edges[pattern][3],all_k_edges[pattern][4],t_edges]
-                clean_k_edges = ['wildcard' if y is None else y for y in k_edges]
+                if graph_db == "ROBOKOP":
+                    k_edges = [f"`{all_k_edges[pattern][0]}`",f"`{all_k_edges[pattern][1]}`",f"`{all_k_edges[pattern][2]}`",f"`{all_k_edges[pattern][3]}`",f"`{all_k_edges[pattern][4]}`",f"`{t_edges}`"]
+                    clean_k_edges = ['wildcard' if x == "`None`" else x for x in k_edges]
+                else:
+                    k_edges = [all_k_edges[pattern][0],all_k_edges[pattern][1],all_k_edges[pattern][2],all_k_edges[pattern][3],all_k_edges[pattern][4],t_edges]
+                    clean_k_edges = ['wildcard' if y is None else y for y in k_edges]
             else:
                 clean_k_edges = ['wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard']
-            searched_edges={pattern:clean_k_edges[:k_values[i]]+[t_edges if t_edges!=None else 'wildcard']}
+            searched_edges={pattern:clean_k_edges[:k_values[i]]+[clean_k_edges[-1]]}
             print(searched_edges)
             searched_edges_dict.update(searched_edges)
             i+=1
         else:
             break
-    answers = ROBOKOPsearch(start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,1000000)
+
+    answers = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,10000000)
     answersdf = answers
     answers_table = dash_table.DataTable(data=answersdf.to_dict('records'),
                         columns=[{"name": i, "id": i, "hideable": True} for i in answersdf.columns],
@@ -1015,7 +1244,7 @@ def submit_path_search(n_clicks,start_node_text,
                             'height': "auto"},
                         export_format="csv")
     
-    return (['ROBOKOP Search Complete!'],answers_table,{"margin-right":"1em",'display':'block'},{'display':'block', 'width':'5em'})
+    return ([f"{graph_db} Search Complete!"],answers_table,{"margin-right":"1em",'display':'block'},{'display':'block', 'width':'5em'})
 
 @app.callback(
     [Output('loading-2', 'children'),
@@ -1024,51 +1253,77 @@ def submit_path_search(n_clicks,start_node_text,
     Output('end-map-output', 'value'),
     Output('end-map-div', 'style')],
     Input('term-map-val', 'n_clicks'),
-    [State('starts', 'value'),
+    [
+    State('kg-dropdown', 'value'),
+    State('starts', 'value'),
     State('ends','value'),
     State("source-dropdown", 'value'), 
     State("tail-dropdown", 'value')]
     )
-def ROBOKOPNodeMapper(n_clicks, start_terms, end_terms, start_label, end_label):
+def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_label):
     if(n_clicks <= 0): return ""
     starts = processInputText(start_terms)
     ends = processInputText(end_terms)
-    G = py2neo.Graph("bolt://robokopkg.renci.org")
-    nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
+    if graph_db == "ROBOKOP":
+        link = "bolt://robokopkg.renci.org"
+    elif graph_db == "HetioNet":
+        link = "bolt://neo4j.het.io"
+    G = py2neo.Graph(link)
+   # nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
     start_message = ""
     end_message = ""
     for term in starts:
+        nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
         a=len(nodes_output['node name'])
-        query = f"MATCH (n{':`'+start_label+'`' if start_label != 'wildcard' else ''}) WHERE n.name CONTAINS \"{term}\" OR n.name CONTAINS \"{term.capitalize()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
+        if graph_db == "ROBOKOP":
+            query = f"MATCH (n{':`'+start_label+'`' if start_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
+        elif graph_db == "HetioNet":
+            query = f"MATCH (n{':'+start_label if start_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
             nodes_output["node name"].append(m[0])
             nodes_output["node id"].append(m[1])
-            nodes_output["node degree"].append(m[2])
+            try:
+                nodes_output["node degree"].append(m[2])
+            except:
+                continue
         b=len(nodes_output['node name'])
         if term in nodes_output["node name"]:
-            start_message+=f"'{term}' found!\n"
+            if graph_db == "ROBOKOP":
+                start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
+            elif graph_db == "HetioNet":
+                start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
         else:
-            start_message+=f"'{term}' not in ROBOKOP under '{start_label}' category, try instead {nodes_output['node name'][a:b]}\n"
+            start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"
    
     for term in ends:
+        nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
         a=len(nodes_output['node name'])
-        query = f"MATCH (n{':`'+end_label+'`' if end_label != 'wildcard' else ''}) WHERE n.name CONTAINS \"{term}\" OR n.name CONTAINS \"{term.capitalize()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
+        if graph_db == "ROBOKOP":
+            query = f"MATCH (n{':`'+end_label+'`' if end_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
+        elif graph_db == "HetioNet":
+            query = f"MATCH (n{':'+end_label if end_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
             nodes_output["node name"].append(m[0])
             nodes_output["node id"].append(m[1])
-            nodes_output["node degree"].append(m[2])
+            try:
+                nodes_output["node degree"].append(m[2])
+            except:
+                continue
         b=len(nodes_output['node name'])
         if term in nodes_output["node name"]:
-            end_message+=f"'{term}' found!\n"
+            if graph_db == "ROBOKOP":
+                end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
+            elif graph_db == "HetioNet":
+                start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
         else:
-            end_message+=f"'{term}' not in ROBOKOP under '{end_label}' category, try instead {nodes_output['node name'][a:b]}\n"             
+            end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"             
     
     
-    return (['ROBOKOP Term Mapping Complete!'],start_message,{"display":'block'},end_message,{"display":'block'})
+    return ([f"{graph_db} Term Mapping Complete!"],start_message,{"display":'block'},end_message,{"display":'block'})
 
 @app.callback(
     [Output('loading-3','children'),
@@ -1108,7 +1363,7 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
     while abs(i)<=len(node_columns):
         dff[node_columns[-1]] = dff.apply(lambda x: x[node_columns[i]] if x[node_columns[-1]] =="?" else x[node_columns[-1]], axis=1)
         i+=-1
-    gkindex=["node0:"+start_type,node_columns[-1]]
+    gkindex=["node0:`"+start_type+"`",node_columns[-1]]
     gk = pd.pivot_table(dff, index=gkindex,columns=["Metapath Name"], values="PathDegreeProduct", aggfunc=sum)
     gk = gk.fillna(0)
     gk.reset_index(inplace=True)
