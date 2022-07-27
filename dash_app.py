@@ -9,6 +9,8 @@ from dash import Dash, dash_table
 import dash_daq as daq
 import numpy as np
 from dash.dependencies import Output, Input, State
+import requests as rq
+import xml.etree.cElementTree as ElementTree
 
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
@@ -25,7 +27,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
     results = {}
     o=0
     frames=[]
-    #print(nodes)
+
     for p in nodes:
         query = f"MATCH "
         k = len(nodes[p])
@@ -34,18 +36,21 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
         for i in range(k):
             if i==0:
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                robokop_output.update({f"esnd_n{i}_r{i}":[]})
+                if graph_db != 'HetioNet':
+                    robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
-                robokop_output.update({f"esnd_n{i}_r{i}":[]})
+                if graph_db != 'HetioNet':
+                    robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
+                    robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             else:
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
+                if graph_db != 'HetioNet':
+                    robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
                 
         if start_end_matching == False:
@@ -72,25 +77,37 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
                 else:
                     que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
                 q = que
-        for i in range(k):
-            firstbracket = "{"
-            secondbracket = "}"
-            firstmark = f"'`'+"
-            secondmark = f"+'`'"
-            if i==0:
-                q = q + f"CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
-            elif i>0 and i<(k-1):
-                q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
-            else:
-                q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
+                
+        if graph_db != 'HetioNet':
+            for i in range(k):
+                firstbracket = "{"
+                secondbracket = "}"
+                firstmark = f"'`'+"
+                secondmark = f"+'`'"
+                if i==0:
+                    q = q + f"CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
+                elif i>0 and i<(k-1):
+                    q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
+                else:
+                    q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
+            
+            for z in range(k):
+                if z==0:
+                    q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
+                elif z>0 and z<(k-1):
+                    q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
+                else: 
+                    q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
 
-        for z in range(k):
-            if z==0:
-                q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
-            elif z>0 and z<(k-1):
-                q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
-            else: 
-                q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
+        else:
+            q = q + f"RETURN "
+            for z in range(k):
+                if z==0:
+                    q = q + f"n{z}.name, TYPE(r{z}), "
+                elif z>0 and z<(k-1):
+                    q = q + f"n{z}.name, TYPE(r{z}), "
+                else: 
+                    q = q + f"n{z}.name LIMIT {limit}"
 
         print(q+"\n")
 
@@ -108,18 +125,14 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
     result.fillna("?",inplace=True)
     path_column = result.pop('path')
     result.insert(0, 'path', path_column)
-#    display(result)
 
-#     save = input("Want to save results? (yes or no) ")
-#     if save == "yes":
-#         csv_fname = input("What do you want to name the csv file?")
-#         result.to_csv(csv_fname, encoding="utf-8-sig", index=False)
     return result
 
 app = dash.Dash()
+app.css.append_css({'external_url': '/assets/reset.css'})
 
 colors = {
-    'background': '#FFFFFF',
+    'background': '#7794B8',
     'dropdown': '#6c6f73',
     'text': '#000000'
 }
@@ -287,8 +300,10 @@ ends = html.Div([
         style={'width': '20%', 'height': 140, 'width': 300, "margin-right": "1em"}
     )])
 
-#Create buttons to submit ROBOKOP search and calculate DWPC.
+#Create buttons to submit ROBOKOP search, get protein names, and calculate DWPC.
 submit_button = html.Button('Submit', id='submit-val', n_clicks=0, style={"margin-right": "1em"})
+protein_names_button = html.Button('Get Protein Names', id='submit-protein-names', n_clicks=0, style={"display":'None'})
+triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
 dwpc_button = html.Button('Submit DWPC', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
 dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         type='number',
@@ -318,6 +333,7 @@ for j in range(10):
     
 #Create tables for results
 answer_table = html.Div(id='answer-table', style={'color': colors['text']})
+protein_names_answers = html.Div(id='protein-names-answers', style={'color': colors['text']})
 dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
 selector = []
@@ -350,18 +366,25 @@ load_3 =  dcc.Loading(
     children=html.Div(id="loading-output-3")
 )
 
+load_4 =  dcc.Loading(
+    id="loading-4",
+    type="default",
+    children=html.Div(id="loading-output-4")
+)
+
 row1 = html.Tr([
     html.Td(starts), 
     html.Td(ends),
     html.Div(submit_button),
     html.Td(load),
-    answer_table
+    answer_table,
+    protein_names_answers
 ])
 row0 = html.Tr(selector)
 tbody = html.Tbody([row0, row1])
 table = html.Table(tbody, style={'color': colors['text']})
 
-app.layout = html.Div(style={'backgroundColor': colors['background'], 'color': colors['text']}, children=[
+app.layout = html.Div(style={'background-color': colors['background'], 'color': colors['text']}, children=[
         
         html.Div([html.B(children='Knowledge Graph:'),kg_dropdown],
                 style={'width': '20em'}), 
@@ -381,9 +404,9 @@ app.layout = html.Div(style={'backgroundColor': colors['background'], 'color': c
                   #html.Td(term_map_button, style={'valign': 'center'}),
                   html.Td(start_map_output),html.Td(end_map_output)]),
                 
-        html.Div([submit_button, term_map_button, load_2, load], style={'padding-bottom': '3em'}),
+        html.Div([submit_button, term_map_button], style={'padding-bottom': '3em'}),
     
-        html.Div([answer_table, dwpc_button, dwpc_weight, load_3], style={'width': '120em', 'padding-bottom': '3em'}),
+        html.Div([answer_table, protein_names_answers, protein_names_button, triangulator_button, dwpc_button, dwpc_weight, load, load_2, load_3, load_4], style={'width': '120em', 'padding-bottom': '3em'}),
     
         html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'})
         
@@ -1005,6 +1028,8 @@ def processInputText(text):
     [Output('loading-1', 'children'),
     Output('answer-table', 'children'),
     Output('submit-dwpc-val', 'style'),
+    Output('submit-protein-names', 'style'),
+    Output('submit-triangulator-val', 'style'),
     Output('dwpc-weight-select', 'style')],
     Input('submit-val', 'n_clicks'),
     [
@@ -1228,13 +1253,15 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
             i+=1
         else:
             break
-
-    answers = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,10000000)
-    answersdf = answers
-    answers_table = dash_table.DataTable(data=answersdf.to_dict('records'),
-                        columns=[{"name": i, "id": i, "hideable": True} for i in answersdf.columns],
+    ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,10000000)
+    answersdf = ans
+    answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
+                        columns=[{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
                         sort_action='native',
+                        filter_action="native",
+                        column_selectable="multi",
+                        selected_columns=[],
                         page_size=10,
                         style_table={'overflowX': 'auto'},
                         style_header={'fontWeight': "bold"},
@@ -1244,7 +1271,19 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
                             'height': "auto"},
                         export_format="csv")
     
-    return ([f"{graph_db} Search Complete!"],answers_table,{"margin-right":"1em",'display':'block'},{'display':'block', 'width':'5em'})
+    return ([f"{graph_db} Search Complete!"],
+            answers_table,
+            {"margin-right":"1em",'display':'block'},
+            {"margin-right":"1em",'display':'block'},
+            {"margin-right":"1em",'display':'block'},
+            {'display':'block', 'width':'5em'})
+
+# @app.callback(
+#     Output('answer-table', 'style'),
+#     Input('submit-val', 'n_clicks'))
+# def displayAnswers():
+#     if(n_clicks <= 0): return ""
+#     return {'display':'block'}
 
 @app.callback(
     [Output('loading-2', 'children'),
@@ -1278,7 +1317,7 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
         if graph_db == "ROBOKOP":
             query = f"MATCH (n{':`'+start_label+'`' if start_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
         elif graph_db == "HetioNet":
-            query = f"MATCH (n{':'+start_label if start_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
+            query = f"MATCH (n{':'+start_label if start_label != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
@@ -1295,15 +1334,17 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
             elif graph_db == "HetioNet":
                 start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
         else:
-            start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"
-   
+            if graph_db != "HetioNet":
+                start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"
+            else:
+                start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n"
     for term in ends:
         nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
         a=len(nodes_output['node name'])
         if graph_db == "ROBOKOP":
             query = f"MATCH (n{':`'+end_label+'`' if end_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
         elif graph_db == "HetioNet":
-            query = f"MATCH (n{':'+end_label if end_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
+            query = f"MATCH (n{':'+end_label if end_label != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
@@ -1318,10 +1359,12 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
             if graph_db == "ROBOKOP":
                 end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
             elif graph_db == "HetioNet":
-                start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
+                end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
         else:
-            end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"             
-    
+            if graph_db != "HetioNet":
+                end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"             
+            else:
+                end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n"
     
     return ([f"{graph_db} Term Mapping Complete!"],start_message,{"display":'block'},end_message,{"display":'block'})
 
@@ -1383,6 +1426,203 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
                         export_format="csv"
                     )
     return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table
+
+@app.callback(
+    [Output('answers', 'data'), Output('answers', 'columns'), Output('loading-4', 'children')],
+    [Input('submit-protein-names', 'n_clicks'), Input('submit-triangulator-val', 'n_clicks')],
+    [State('answer-table', 'children'), State('answers', 'selected_columns')])
+def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,selected_columns):
+    button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    print(button_id)
+    if button_id == 'submit-protein-names' and protein_names_clicks:
+        #Get protein names from HGNC
+        dff = pd.DataFrame.from_dict(answer_datatable['props']['data'])
+        gene_cols = [col for col in dff.columns if ":Gene" in col]
+        print(dff.columns)
+        if len(gene_cols) == 0: return dff.to_dict('records'), [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns], "No \"Gene\" column detected."
+
+        genes = dict()
+        proteins = list()
+        protname_df = pd.read_csv("hgnc_complete_set.csv")
+
+        for col in gene_cols:
+            genes[col] = dff[col].tolist() 
+        for col_x in genes:
+            print(col_x)
+            proteins = list()
+            failed_proteins = list()
+            for gene in genes[col_x]:
+                try:
+                    i = protname_df[protname_df['symbol']==gene.upper()].index.values
+                    #print(str(i) + " is the index")
+                    index = int(i[0])
+                    protein = protname_df.at[index, 'name']
+                    proteins.append(protein)
+                    #print(gene + " maps to " + protein)
+
+                except:
+                    if gene == "Ins1":
+                        proteins.append("insulin 1 (rodent)")
+                        #print(gene + " maps to " + "insulin 1 (rodent)")
+                    else:
+                        proteins.append('FAILED')
+                        failed_proteins.append(gene)
+                        print(f"Could not map gene symbol:{gene}")
+
+            loc = dff.columns.get_loc(col_x)
+            dff.insert(loc+1, col_x+' protein names', proteins)
+            print(dff.columns)
+
+        ammended_answers = dff.to_dict('records')
+        ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns]
+        if len(failed_proteins) != 0:
+            fails = ''.join([str(x)+", " for x in failed_proteins])
+            message = f"Finished retrieving protein names!\nFailed on {fails}."
+        else:
+            message = "Finished retrieving protein names!"
+
+        return ammended_answers, ammended_columns, message
+    elif button_id == 'submit-triangulator-val' and triangulator_clicks:
+        print(selected_columns)
+        #Find number of co-mentioning abstracts from Pubmed for 2 or 3 terms.
+        dff = pd.DataFrame.from_dict(answer_datatable['props']['data'])
+        expand = True
+        number = len(selected_columns)
+        two_term_dict = dict()
+        three_term_dict = dict()
+        comention_counts_1_2 = list()
+        comention_counts_1_3 = list()
+        comention_counts_2_3 = list()
+        comention_counts_1_2_3 = list()
+        URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+        if number not in [2,3]:
+            return dff.to_dict('records'), [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns], "Please select 2 or 3 node columns for PubMed search."
+        print("Running PubMed Check")
+        if number == 2:
+            print('number=2')
+            term1_list=dff[selected_columns[0]].tolist()
+            term2_list=dff[selected_columns[1]].tolist()
+            for (term1, term2) in zip(term1_list, term2_list):
+                key=f"{term1}:{term2}"
+                if key not in two_term_dict.keys():
+                    if(expand):
+                        two_term = f'{term1} AND {term2}'
+                    else:
+                        two_term = f'"{term1}"[All Fields] AND "{term2}"[All Fields]'
+
+                    PARAMS = {'db':'pubmed','term':two_term,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                    time.sleep(0.1)
+                    r = rq.get(url = URL, params = PARAMS)
+                    if(r.status_code != rq.codes.ok):
+                        time.sleep(1.0)
+                        r = rq.get(url = URL, params = PARAMS)
+                    tree = ElementTree.fromstring(r.text)
+                    cnt = int(tree.find("Count").text)
+                    print(f"{term1}-{term2}:{cnt}")
+                    two_term_dict[key] = cnt
+                else:
+                    cnt = two_term_dict[key]
+                comention_counts_1_2.append(cnt)
+    
+            Term1=selected_columns[0].replace('`','').replace('biolink:','')
+            Term2=selected_columns[1].replace('`','').replace('biolink:','')
+            dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
+
+        elif number == 3:
+            print('number=3')
+            term1_list=dff[selected_columns[0]].tolist()
+            term2_list=dff[selected_columns[1]].tolist()
+            term3_list=dff[selected_columns[2]].tolist()
+            for (term1, term2, term3) in zip(term1_list, term2_list, term3_list):
+                onetwokey=f"{term1}_{term2}"
+                onethreekey=f"{term1}_{term3}"
+                twothreekey=f"{term2}_{term3}"
+                onetwothreekey=f"{term1}_{term2}_{term3}"
+               
+                if(expand):
+                    term_1_2 = f'{term1} AND {term2}'
+                    term_1_3 = f'{term1} AND {term3}'
+                    term_2_3 = f'{term2} AND {term3}'
+                    term_1_2_3 = f'{term1} AND {term2} AND {term3}'
+                else:
+                    term_1_2 = f'"{term1}"[All Fields] AND "{term2}"[All Fields]'
+                    term_1_3 = f'"{term1}"[All Fields] AND "{term3}"[All Fields]'
+                    term_2_3 = f'"{term2}"[All Fields] AND "{term3}"[All Fields]'
+                    term_1_2_3 = f'"{term1}"[All Fields] AND "{term2}"[All Fields] AND "{term3}"[All Fields]'
+                    
+                if onetwokey not in two_term_dict.keys():
+                    PARAMS = {'db':'pubmed','term':term_1_2,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                    time.sleep(0.1)
+                    r = rq.get(url = URL, params = PARAMS)
+                    if(r.status_code != rq.codes.ok):
+                        time.sleep(1.0)
+                        r = rq.get(url = URL, params = PARAMS)
+                    tree = ElementTree.fromstring(r.text)
+                    cnt = int(tree.find("Count").text)
+                    two_term_dict[onetwokey] = cnt
+                else:
+                    cnt = two_term_dict[onetwokey]
+                comention_counts_1_2.append(cnt)
+                
+                if onethreekey not in two_term_dict.keys():
+                    PARAMS = {'db':'pubmed','term':term_1_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                    time.sleep(0.1)
+                    r = rq.get(url = URL, params = PARAMS)
+                    if(r.status_code != rq.codes.ok):
+                        time.sleep(1.0)
+                        r = rq.get(url = URL, params = PARAMS)
+                    tree = ElementTree.fromstring(r.text)
+                    cnt = int(tree.find("Count").text)
+                    two_term_dict[onethreekey] = cnt
+                else:
+                    cnt = two_term_dict[onethreekey]
+                comention_counts_1_3.append(cnt)
+                
+                if twothreekey not in two_term_dict.keys():
+                    PARAMS = {'db':'pubmed','term':term_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                    time.sleep(0.1)
+                    r = rq.get(url = URL, params = PARAMS)
+                    if(r.status_code != rq.codes.ok):
+                        time.sleep(1.0)
+                        r = rq.get(url = URL, params = PARAMS)
+                    tree = ElementTree.fromstring(r.text)
+                    cnt = int(tree.find("Count").text)
+                    two_term_dict[twothreekey] = cnt
+                else:
+                    cnt = two_term_dict[twothreekey]
+                comention_counts_2_3.append(cnt)
+                
+                if onetwothreekey not in three_term_dict.keys():
+                    PARAMS = {'db':'pubmed','term':term_1_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                    time.sleep(0.1)
+                    r = rq.get(url = URL, params = PARAMS)
+                    if(r.status_code != rq.codes.ok):
+                        time.sleep(1.0)
+                        r = rq.get(url = URL, params = PARAMS)
+                    tree = ElementTree.fromstring(r.text)
+                    cnt = int(tree.find("Count").text)
+                    three_term_dict[onetwothreekey] = cnt
+                    print(f"{term1}-{term2}-{term3}")
+                else:
+                    cnt = three_term_dict[onetwothreekey]
+                comention_counts_1_2_3.append(cnt)
+                
+            Term1=selected_columns[0].replace('`','').replace('biolink:','')
+            Term2=selected_columns[1].replace('`','').replace('biolink:','')
+            Term3=selected_columns[2].replace('`','').replace('biolink:','')
+            dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
+            dff.insert(0, f"{Term1}-{Term3} counts", comention_counts_1_3)
+            dff.insert(0, f"{Term2}-{Term3} counts", comention_counts_2_3)
+            dff.insert(0, f"{Term1}-{Term2}-{Term3} counts", comention_counts_1_2_3)
+
+        ammended_answers = dff.to_dict('records')
+        ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
+        message = "Finished retrieving PubMed Abstract Co-Mentions!"
+        return (ammended_answers, ammended_columns, message)
+    else:
+        raise dash.exceptions.PreventUpdate
+        
+ #############################################################    
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=80,debug=True)
