@@ -1,0 +1,12 @@
+External IP: http://34.67.224.53/
+Port = 80
+
+How to run the server on VM:
+
+sudo su
+cd miniconda3/bin/
+source activate
+cd ../../AOP-COP-Path-Extractor/
+type "screen" to activate GNU screen
+python dash_app.py
+type ctrl+A, then ctrl+D to run in detached mode with GNU screen.
