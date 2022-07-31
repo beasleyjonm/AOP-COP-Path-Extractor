@@ -11,6 +11,7 @@ import numpy as np
 from dash.dependencies import Output, Input, State
 import requests as rq
 import xml.etree.cElementTree as ElementTree
+import time
 
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
@@ -351,24 +352,28 @@ for j in range(10):
 load =  dcc.Loading(
     id="loading-1",
     type="default",
+    color=colors['text'],
     children=html.Div(id="loading-output-1")
 )
 
 load_2 =  dcc.Loading(
     id="loading-2",
     type="default",
+    color=colors['text'],
     children=html.Div(id="loading-output-2")
 )
 
 load_3 =  dcc.Loading(
     id="loading-3",
     type="default",
+    color=colors['text'],
     children=html.Div(id="loading-output-3")
 )
 
 load_4 =  dcc.Loading(
     id="loading-4",
     type="default",
+    color=colors['text'],
     children=html.Div(id="loading-output-4")
 )
 
@@ -404,9 +409,9 @@ app.layout = html.Div(style={'background-color': colors['background'], 'color': 
                   #html.Td(term_map_button, style={'valign': 'center'}),
                   html.Td(start_map_output),html.Td(end_map_output)]),
                 
-        html.Div([submit_button, term_map_button], style={'padding-bottom': '3em'}),
+        html.Div([submit_button, term_map_button, load, load_2], style={'padding-bottom': '3em'}),
     
-        html.Div([answer_table, protein_names_answers, protein_names_button, triangulator_button, dwpc_button, dwpc_weight, load, load_2, load_3, load_4], style={'width': '120em', 'padding-bottom': '3em'}),
+        html.Div([answer_table, protein_names_answers, protein_names_button, triangulator_button, dwpc_button, dwpc_weight, load_3, load_4], style={'width': '120em', 'padding-bottom': '3em'}),
     
         html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'})
         
@@ -1625,4 +1630,5 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
  #############################################################    
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=80,debug=True)
+    app.run_server()
+#   app.run_server(host='0.0.0.0', port=80,debug=True) #For production
