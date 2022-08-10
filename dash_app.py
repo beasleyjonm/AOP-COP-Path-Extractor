@@ -12,6 +12,7 @@ from dash.dependencies import Output, Input, State
 import requests as rq
 import xml.etree.cElementTree as ElementTree
 import time
+from subprocess import Popen
 
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
@@ -1274,6 +1275,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
                         style_data={
                             'whiteSpace': "normal",
                             'height': "auto"},
+                        markdown_options={"html": True},
                         export_format="csv")
     
     return ([f"{graph_db} Search Complete!"],
@@ -1527,7 +1529,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     two_term_dict[key] = cnt
                 else:
                     cnt = two_term_dict[key]
-                comention_counts_1_2.append(cnt)
+                comention_counts_1_2.append(f"<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>{str(cnt)}</a>")
     
             Term1=selected_columns[0].replace('`','').replace('biolink:','')
             Term2=selected_columns[1].replace('`','').replace('biolink:','')
@@ -1567,7 +1569,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     two_term_dict[onetwokey] = cnt
                 else:
                     cnt = two_term_dict[onetwokey]
-                comention_counts_1_2.append(cnt)
+                comention_counts_1_2.append(f"<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>{str(cnt)}</a>")
                 
                 if onethreekey not in two_term_dict.keys():
                     PARAMS = {'db':'pubmed','term':term_1_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
@@ -1581,7 +1583,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     two_term_dict[onethreekey] = cnt
                 else:
                     cnt = two_term_dict[onethreekey]
-                comention_counts_1_3.append(cnt)
+                comention_counts_1_3.append(f"<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term3}' target='_blank' rel='noopener noreferrer'>{str(cnt)}</a>")
                 
                 if twothreekey not in two_term_dict.keys():
                     PARAMS = {'db':'pubmed','term':term_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
@@ -1595,7 +1597,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     two_term_dict[twothreekey] = cnt
                 else:
                     cnt = two_term_dict[twothreekey]
-                comention_counts_2_3.append(cnt)
+                comention_counts_2_3.append(f"<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term2} AND {term3}' target='_blank' rel='noopener noreferrer'>{str(cnt)}</a>")
                 
                 if onetwothreekey not in three_term_dict.keys():
                     PARAMS = {'db':'pubmed','term':term_1_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
@@ -1610,7 +1612,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     print(f"{term1}-{term2}-{term3}")
                 else:
                     cnt = three_term_dict[onetwothreekey]
-                comention_counts_1_2_3.append(cnt)
+                comention_counts_1_2_3.append(f"<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}' target='_blank' rel='noopener noreferrer'>{str(cnt)}</a>")
                 
             Term1=selected_columns[0].replace('`','').replace('biolink:','')
             Term2=selected_columns[1].replace('`','').replace('biolink:','')
@@ -1621,7 +1623,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
             dff.insert(0, f"{Term1}-{Term2}-{Term3} counts", comention_counts_1_2_3)
 
         ammended_answers = dff.to_dict('records')
-        ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
+        ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": False, "presentation":"markdown"} if " counts" in i else {"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
         message = "Finished retrieving PubMed Abstract Co-Mentions!"
         return (ammended_answers, ammended_columns, message)
     else:
@@ -1630,5 +1632,5 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
  #############################################################    
 
 if __name__ == '__main__':
-#    app.run_server()
-    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
+    app.run_server()
+#    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
