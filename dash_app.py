@@ -207,7 +207,7 @@ pattern_select = daq.NumericInput(id="pattern-select",min=1,max=10,value=1,label
 #Default query pattern names are P1, P2, ... Pn.
 pattern_name_boxes=[]
 for i in range(1,11):
-    pattern_name = dcc.Input(id="pattern-name-{}".format(i), type="text", placeholder='P{}'.format(i), value='P{}'.format(i), style={'width':'15em'})
+    pattern_name = dcc.Input(id="pattern-name-{}".format(i), type="text", placeholder='P{}'.format(i), value='P{}'.format(i))
     pattern_name_boxes.append(pattern_name)
 
 #Make the selection button that determines globally whether or not edges can be specificied.
@@ -341,11 +341,10 @@ dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 selector = []
 for j in range(10):
     select = html.Div(id='selector-%i' % (j+1), style={'display':('None' if j != 0 else 'block')}, children=[
-        html.Tr(children=[html.B(children='Query Pattern Name:'),pattern_name_boxes[j]]),
-                                      
-        html.Tr(children=[html.Td(style={'text-align':'center'},children=[html.B(children='K Value:'),all_k_selects[j]]),
-                          
-        html.Td(children=[all_node_edge_divs[j]])])
+        html.Td(children=[html.Td(style={'text-align':'center'},children=html.B(children='Query Pattern Name:')),pattern_name_boxes[j]]),                              
+        html.Td(children=[html.Td(style={'text-align':'center'},children=html.B(children='K Value:')),all_k_selects[j]]),
+        html.Td(children=[html.Td(style={'text-align':'center'},children=html.B(children='')),html.B(children='==>',style={'vertical-align':'bottom'})]),      
+        html.Td(children=[all_node_edge_divs[j]])
         ])
     
     selector.append(select)
@@ -390,7 +389,7 @@ row0 = html.Tr(selector)
 tbody = html.Tbody([row0, row1])
 table = html.Table(tbody, style={'color': colors['text']})
 
-app.layout = html.Div(style={'background-color': colors['background'], 'color': colors['text']}, children=[
+app.layout = html.Div(style={'padding-left': '3em','background-color': colors['background'], 'color': colors['text']}, children=[
         
         html.Div([html.B(children='Knowledge Graph:'),kg_dropdown],
                 style={'width': '20em'}), 
@@ -1019,9 +1018,10 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
                         style_header={'fontWeight': "bold"},
                         style_cell={
                             'color': "#000000",
-                            'minWidth': '180px', 
-                            'width': '180px', 
-                            'maxWidth': '180px',},
+                            #'minWidth': '90px', 
+                            #'width': '90px', 
+                            #'maxWidth': '90px',
+                            },
                         style_data={
                             'whiteSpace': "normal",
                             'height': "auto"},
@@ -1176,9 +1176,9 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
                         page_size=20,
                         style_table={'overflowX': 'auto'},
                         style_cell={'color': "#000000",
-                            'minWidth': '180px', 
-                            'width': '180px', 
-                            'maxWidth': '180px',
+                            #'minWidth': '60px', 
+                            #'width': '60px', 
+                            #'maxWidth': '60px',
                             'whiteSpace': "normal",
                             'height': "auto"},
                         style_header={
@@ -1206,7 +1206,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 
         genes = dict()
         proteins = list()
-        protname_df = pd.read_csv("//AOP-COP-Path-Extractor/hgnc_complete_set.csv")
+        protname_df = pd.read_csv("C://Users/vinicius/Documents/Github/AOP-COP-Path-Extractor/hgnc_complete_set.csv", encoding="utf-8")
 
         for col in gene_cols:
             genes[col] = dff[col].tolist() 
