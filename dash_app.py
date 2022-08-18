@@ -1206,7 +1206,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 
         genes = dict()
         proteins = list()
-        protname_df = pd.read_csv("C://Users/vinicius/Documents/Github/AOP-COP-Path-Extractor/hgnc_complete_set.csv", encoding="utf-8")
+        protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
 
         for col in gene_cols:
             genes[col] = dff[col].tolist() 
