@@ -1,6 +1,4 @@
 import pandas as pd
-pd.set_option('display.max_columns', 20)
-pd.set_option('display.max_rows', 100)
 import py2neo
 import dash
 from dash import dcc
@@ -12,126 +10,12 @@ from dash.dependencies import Output, Input, State
 import requests as rq
 import xml.etree.cElementTree as ElementTree
 import time
-from subprocess import Popen
-
-#Version 2
-#Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
-#Measured and it IS faster than Version 1.
-
-def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
-    if graph_db == "ROBOKOP":
-        link = "bolt://robokopkg.renci.org"
-    elif graph_db == "HetioNet":
-        link = "bolt://neo4j.het.io"
-    G = py2neo.Graph(link)
-    limit = str(limit_results)
-    robokop_output = {}
-    results = {}
-    o=0
-    frames=[]
-
-    for p in nodes:
-        query = f"MATCH "
-        k = len(nodes[p])
-        robokop_output = {}
-        
-        for i in range(k):
-            if i==0:
-                robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                if graph_db != 'HetioNet':
-                    robokop_output.update({f"esnd_n{i}_r{i}":[]})
-                robokop_output.update({f"edge{i}":[]})
-                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-            elif i>0 and i<(k-1):
-                robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                if graph_db != 'HetioNet':
-                    robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
-                    robokop_output.update({f"esnd_n{i}_r{i}":[]})
-                robokop_output.update({f"edge{i}":[]})
-                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-            else:
-                robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                if graph_db != 'HetioNet':
-                    robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
-                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
-                
-        if start_end_matching == False:
-            que = query 
-            if "wildcard" in start_nodes and "wildcard" in end_nodes:
-                continue
-            elif "wildcard" in start_nodes:
-                que = que + f"WHERE n{k-1}.name IN {str(end_nodes)} "
-            elif "wildcard" in end_nodes:
-                que = que + f"WHERE n{0}.name IN {str(start_nodes)} "
-            else:
-                que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else 'IN'} {str(start_nodes)} AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else 'IN'} {str(end_nodes)} "
-            q = que
-                            
-        elif start_end_matching == True:
-            for start, end in zip(start_nodes, end_nodes):
-                que = query
-                if "wildcard" in start and "wildcard" in end:
-                    que = que
-                elif "wildcard" in start:
-                    que = que + f"WHERE n{k-1}.name = \"{end}\" "
-                elif "wildcard" in end:
-                    que = que + f"WHERE n{0}.name = \"{start}\" "
-                else:
-                    que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
-                q = que
-                
-        if graph_db != 'HetioNet':
-            for i in range(k):
-                firstbracket = "{"
-                secondbracket = "}"
-                firstmark = f"'`'+"
-                secondmark = f"+'`'"
-                if i==0:
-                    q = q + f"CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
-                elif i>0 and i<(k-1):
-                    q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} CALL{firstbracket}WITH n{i}, r{i} MATCH(n{i})-[r{i}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i}{secondbracket} "
-                else:
-                    q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
-            
-            for z in range(k):
-                if z==0:
-                    q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
-                elif z>0 and z<(k-1):
-                    q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
-                else: 
-                    q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
-
-        else:
-            q = q + f"RETURN "
-            for z in range(k):
-                if z==0:
-                    q = q + f"n{z}.name, TYPE(r{z}), "
-                elif z>0 and z<(k-1):
-                    q = q + f"n{z}.name, TYPE(r{z}), "
-                else: 
-                    q = q + f"n{z}.name LIMIT {limit}"
-
-        print(q+"\n")
-
-        matches = G.run(q)
-        for m in matches:
-            l = 0
-            for j in robokop_output:
-                robokop_output[j].append(m[l])
-                l += 1
-
-        robokop_output.update({"path":p})
-        frames.append(pd.DataFrame(data=robokop_output))
-        
-    result = pd.concat(frames, ignore_index=True, sort=False)
-    result.fillna("?",inplace=True)
-    path_column = result.pop('path')
-    result.insert(0, 'path', path_column)
-
-    return result
+from networkx.drawing.nx_pydot import graphviz_layout
+from Neo4jSearch import Graphsearch
+from Neo4jSearch import getNodeAndEdgeLabels
 
 app = dash.Dash()
-app.css.append_css({'external_url': '/assets/reset.css'})
+app.css.append_css({'external_url': '/assets/styles.css'})
 
 colors = {
     'background': '#7794B8',
@@ -139,23 +23,7 @@ colors = {
     'text': '#000000'
 }
 
-def getROBOKOPNodeAndEdgeLabels():
-    G = py2neo.Graph("bolt://robokopkg.renci.org")
-    rk_nodes=[]
-    rk_edges=[]
-    query_1 = f"call db.labels"
-    matches_1 = G.run(query_1)
-    for m in matches_1:
-        rk_nodes.append(m[0])
-    query_2 = f"call db.relationshipTypes"
-    matches_2 = G.run(query_2)
-    for m in matches_2:
-        rk_edges.append(m[0])
-    rk_nodes.sort()
-    rk_edges.sort()
-    return (rk_nodes, rk_edges)
-
-rk_nodes_and_edges=getROBOKOPNodeAndEdgeLabels()
+rk_nodes_and_edges=getNodeAndEdgeLabels('ROBOKOP')
 rk_nodes=rk_nodes_and_edges[0]
 rk_edges=rk_nodes_and_edges[1]
 
@@ -165,6 +33,7 @@ kg_dropdown = dcc.Dropdown(id="kg-dropdown",
            {'label':"ROBOKOP", 'value':"ROBOKOP"},
            {'label':"HetioNet", 'value':"HetioNet"}],
            value="ROBOKOP",
+           className='dropdownbox',
            clearable=False)
 
 source_dropdown = dcc.Dropdown(id="source-dropdown",
@@ -290,7 +159,7 @@ Aldicarb
 Pyrene
 Tricresyl phosphate''',
         placeholder="Leave blank to include *any* start entities...",
-        style={'width': '20%', 'height': 140, 'width': 300}
+        className='searchTerms'
 )])
 
 ends = html.Div([
@@ -299,7 +168,7 @@ ends = html.Div([
         id='ends',
         value='''Neurodevelopmental Disorders''',
         placeholder="Leave blank to include *any* end entities...",
-        style={'width': '20%', 'height': 140, 'width': 300, "margin-right": "1em"}
+        className='searchTerms'
     )])
 
 #Create buttons to submit ROBOKOP search, get protein names, and calculate DWPC.
@@ -313,24 +182,16 @@ dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         max=1,
                         step=0.01,
                         placeholder="Weight",
-                        style={'display':'None'})
+                        style={'display':'None','vertical-align':'center','padding':'1em'})
 
 all_node_edge_divs = []
 for j in range(10):
-    node_edge_div = html.Div([
-        #k_edge_drop[0],
-        html.Td(all_k_drops[j][0], style={'width': '20em'}),
-        #k_edge_drop[1],
+    node_edge_div = html.Div([html.Td(all_k_drops[j][0], style={'width': '20em'}),
         html.Td(all_k_drops[j][1], style={'width': '20em'}),
-        #k_edge_drop[2],
         html.Td(all_k_drops[j][2],style={'width': '20em'}),
-        #k_edge_drop[3],
         html.Td(all_k_drops[j][3],style={'width': '20em'}),
-        #k_edge_drop[4],
-        html.Td(all_k_drops[j][4],style={'width': '20em'})
-        ],
-        style={'width': '100em'},
-        id="node-edge-div-%i" % (j+1))
+        html.Td(all_k_drops[j][4],style={'width': '20em'})],
+        style={'width': '100em'},id="node-edge-div-%i" % (j+1))
     all_node_edge_divs.append(node_edge_div)
     
 #Create tables for results
@@ -390,33 +251,56 @@ tbody = html.Tbody([row0, row1])
 table = html.Table(tbody, style={'color': colors['text']})
 
 app.layout = html.Div(style={'padding-left': '3em','background-color': colors['background'], 'color': colors['text']}, children=[
+
+        html.Div(html.Tr(html.B(children='Welcome to ExPAT (Extracting and Exploring Explanatory Pathways About Therapeutics)!')),
+            style={'padding-top':'1em','padding-bottom':'1em','font-size':'40px'}), 
         
-        html.Div([html.B(children='Knowledge Graph:'),kg_dropdown],
-                style={'width': '20em'}), 
+        html.Div([html.B(children='To begin:'),
+            html.Tr(children='(1) Select a biomedical knowledge graph source.'),
+            html.H1(children='Knowledge Graph:'),kg_dropdown],
+            style={'width': '20em'}), 
+
+            html.Div(style={'padding-bottom':'3em','vertical-align':'top'}, children=[
+                html.Tr(children='(2) Choose category of Starting and Ending nodes for pathway.'),
+                html.Td(children=[html.H1(children='Start Node:'),source_dropdown],
+                    style={'width': '20em'}),
+                html.Td(children=[html.H1(children='Tail Node:'),tail_edge,tail_dropdown],
+                    style={'width': '20em'}),
+                html.Td(children=[pattern_select]),
+                html.Td(edge_checkbox, style={'vertical-align':'bottom'})]),
+
+            html.Div(children=selector, style={'padding-bottom': '3em'}),
         
-        html.Div(style={'padding-bottom': '3em', 'vertical-align': 'top'}, children=[
-            html.Td(children=[html.B(children='Start Node:'),source_dropdown],
-                style={'width': '20em'}),
-            html.Td(children=[html.B(children='Tail Node:'),tail_edge,tail_dropdown],
-                style={'width': '20em'}),
-            html.Td(pattern_select),
-            html.Td(edge_checkbox, style={'vertical-align':'bottom'})]),
-   
-        html.Div(children=selector, style={'padding-bottom': '3em'}),
-    
-        html.Div([html.Td(starts),
-                  html.Td(ends),
-                  #html.Td(term_map_button, style={'valign': 'center'}),
-                  html.Td(start_map_output),html.Td(end_map_output)]),
+            html.Div([html.Td(starts),
+                    html.Td(ends),
+                    html.Td(start_map_output),html.Td(end_map_output)]),
+        
+        # html.Td([html.Tr(html.B(children='To begin:')),
+        #         html.Tr(children='(1) Select a biomedical knowledge graph source.'),
+        #         html.Tr(children='(2) Choose category of Starting and Ending nodes for pathway.'),
+        #         html.Tr(children='(3) Build a series of explanatory intermediates node and/or edge types between Start and End.'),
+        #         html.Tr(children='(4) Type names of specific Start and End entities of interest.'),
+        #         html.Tr(children='(5) Check these names for terms in the knowledge graph. Copy and paste suggested names if your supplied name is not found.'),
+        #         html.Tr(children='(6) Hit "Submit" to retrieve all answer subgraph paths in tabular form.'),
+        #         html.Tr(children='(7) If "Gene" nodes are present, you may retrieve HGNC-Approved protein names for all genes by clicking "Get Protein Names".'),
+        #         html.Tr(children='(8) Queries often return numerous answer paths. To prioritize paths for deeper exploration, select any 2 or 3 node columns and click "Get PubMed Abstract Co-Mentions".'),
+        #         html.Tr(children='This appends columns to the answer table which show the number of PubMed abstracts co-mentioning any term pairs or term triplets from your answer table.'),
+        #         html.Tr(children='Typically, high co-mention counts between any pair or triplet of terms indicates strong support or attention for some relationship between co-mentioned terms.'),
+        #         html.Tr(children='Each co-mention count cell has a link to PubMed to view these co-mentioning articles.'),
+        #         html.Tr(children='(9) You can compute an embedding for each Start and End node pair based on the answer table. Each row in the answer table can be represented as a metapath,'),
+        #         html.Tr(children='a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair (Himmelstein,D.S & Baranzini,S.E., 2015).'),
+        #         html.Tr(children='To compute DWPC, change the "Weight" value then click "Submit DWPC".'),
+        #         html.Tr(children='A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND)).')],
+        #         style={'margin-left':'0'}),
                 
         html.Div([submit_button, term_map_button, load, load_2], style={'padding-bottom': '3em'}),
     
-        html.Div([answer_table, protein_names_answers, protein_names_button, triangulator_button, dwpc_button, dwpc_weight, load_3, load_4], style={'width': '120em', 'padding-bottom': '3em'}),
+        html.Div([answer_table, protein_names_answers], style={'width': '120em', 'padding-bottom': '1em'}),
+
+        html.Div([html.Td(protein_names_button), html.Td(triangulator_button), html.Td([dwpc_button,dwpc_weight]), html.Td(load_3), html.Td(load_4)], style={'padding-bottom': '3em'}),
     
         html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'})
-        
     ])
-
 
 selected_nodes = []
 selected_edges = []
@@ -425,11 +309,7 @@ def checkToBool(show_edge):
     if(len(show_edge)==1): return True
     else: return False
     
-@app.callback(
-    Output("source-dropdown",'value'),
-    Output("source-dropdown",'options'),
-    Output("tail-dropdown",'value'),
-    Output("tail-dropdown",'options'),
+@app.callback(Output("source-dropdown",'value'),Output("source-dropdown",'options'),Output("tail-dropdown",'value'),Output("tail-dropdown",'options'),
     Output("node-dropdown-1-1",'options'),Output("node-dropdown-1-2",'options'),Output("node-dropdown-1-3",'options'),Output("node-dropdown-1-4",'options'),Output("node-dropdown-1-5",'options'),
     Output("node-dropdown-2-1",'options'),Output("node-dropdown-2-2",'options'),Output("node-dropdown-2-3",'options'),Output("node-dropdown-2-4",'options'),Output("node-dropdown-2-5",'options'),
     Output("node-dropdown-3-1",'options'),Output("node-dropdown-3-2",'options'),Output("node-dropdown-3-3",'options'),Output("node-dropdown-3-4",'options'),Output("node-dropdown-3-5",'options'),
@@ -453,33 +333,20 @@ def checkToBool(show_edge):
     Output("tail-edge",'options'), 
     Input("kg-dropdown", 'value')
 )
-def getNodeAndEdgeLabels(graph_db):
+def UpdateNodeAndEdgeLabels(graph_db):
     if graph_db == "ROBOKOP":
-        link = "bolt://robokopkg.renci.org"
         starter = "biolink:ChemicalEntity"
         ender = "biolink:DiseaseOrPhenotypicFeature"
     elif graph_db == "HetioNet":
-        link = "bolt://neo4j.het.io"
         starter = "Compound"
         ender = "Disease"
-    G = py2neo.Graph(link)
-    rk_nodes=[]
-    rk_edges=[]
-    query_1 = f"call db.labels"
-    matches_1 = G.run(query_1)
-    for m in matches_1:
-        rk_nodes.append(m[0])
-    query_2 = f"call db.relationshipTypes"
-    matches_2 = G.run(query_2)
-    for m in matches_2:
-        rk_edges.append(m[0])
-    rk_nodes.sort()
-    rk_edges.sort()
+    rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
+    rk_nodes=rk_nodes_and_edges[0]
+    rk_edges=rk_nodes_and_edges[1]
     node_options = [{'label':x, 'value':x} for x in rk_nodes]
     edge_options = [{'label':x, 'value':x} for x in rk_edges]
     print(node_options)
     return (starter, node_options,ender,
-
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
@@ -493,7 +360,6 @@ def getNodeAndEdgeLabels(graph_db):
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,
-
     edge_options,edge_options,edge_options,edge_options,
     edge_options,edge_options,edge_options,edge_options,
     edge_options,edge_options,edge_options,edge_options,
@@ -508,19 +374,9 @@ def getNodeAndEdgeLabels(graph_db):
     edge_options,edge_options,edge_options,edge_options,
     edge_options,edge_options,edge_options)
 
-@app.callback(
-    [Output("selector-1",'style'),
-    Output("selector-2",'style'),
-    Output("selector-3",'style'),
-    Output("selector-4",'style'),
-    Output("selector-5",'style'),
-    Output("selector-6",'style'),
-    Output("selector-7",'style'),
-    Output("selector-8",'style'),
-    Output("selector-9",'style'),
-    Output("selector-10",'style')], 
-    Input('pattern-select', 'value')
-)
+@app.callback([Output("selector-1",'style'),Output("selector-2",'style'),Output("selector-3",'style'),Output("selector-4",'style'),Output("selector-5",'style'),
+    Output("selector-6",'style'),Output("selector-7",'style'),Output("selector-8",'style'),Output("selector-9",'style'),Output("selector-10",'style')], 
+    Input('pattern-select', 'value'))
 def hide_elements_p(p):
     pattern_1 = {'display':'block'} if p>=1 else {'display':'None'}
     pattern_2 = {'display':'block'} if p>=2 else {'display':'None'}
@@ -535,324 +391,94 @@ def hide_elements_p(p):
 
     return pattern_1,pattern_2,pattern_3,pattern_4,pattern_5,pattern_6,pattern_7,pattern_8,pattern_9,pattern_10
 
-@app.callback(
-    [
-    Output("node-div-1-1",'style'),
-    Output("node-div-1-2",'style'),
-    Output("node-div-1-3",'style'),
-    Output("node-div-1-4",'style'),
-    Output("node-div-1-5",'style'),
-    Output("edge-div-1-1",'style'),
-    Output("edge-div-1-2",'style'),
-    Output("edge-div-1-3",'style'),
-    Output("edge-div-1-4",'style'),
-    Output("edge-div-1-5",'style')], 
-    [Input("k-select-1", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-1-1",'style'),Output("node-div-1-2",'style'),Output("node-div-1-3",'style'),Output("node-div-1-4",'style'),Output("node-div-1-5",'style'),
+    Output("edge-div-1-1",'style'),Output("edge-div-1-2",'style'),Output("edge-div-1-3",'style'),Output("edge-div-1-4",'style'),Output("edge-div-1-5",'style')], 
+    [Input("k-select-1", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k1(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-2-1",'style'),
-    Output("node-div-2-2",'style'),
-    Output("node-div-2-3",'style'),
-    Output("node-div-2-4",'style'),
-    Output("node-div-2-5",'style'),
-    Output("edge-div-2-1",'style'),
-    Output("edge-div-2-2",'style'),
-    Output("edge-div-2-3",'style'),
-    Output("edge-div-2-4",'style'),
-    Output("edge-div-2-5",'style')], 
-    [Input("k-select-2", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-2-1",'style'),Output("node-div-2-2",'style'),Output("node-div-2-3",'style'),Output("node-div-2-4",'style'),Output("node-div-2-5",'style'),
+    Output("edge-div-2-1",'style'),Output("edge-div-2-2",'style'),Output("edge-div-2-3",'style'),Output("edge-div-2-4",'style'),Output("edge-div-2-5",'style')], 
+    [Input("k-select-2", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k2(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-3-1",'style'),
-    Output("node-div-3-2",'style'),
-    Output("node-div-3-3",'style'),
-    Output("node-div-3-4",'style'),
-    Output("node-div-3-5",'style'),
-    Output("edge-div-3-1",'style'),
-    Output("edge-div-3-2",'style'),
-    Output("edge-div-3-3",'style'),
-    Output("edge-div-3-4",'style'),
-    Output("edge-div-3-5",'style')], 
-    [Input("k-select-3", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-3-1",'style'),Output("node-div-3-2",'style'),Output("node-div-3-3",'style'),Output("node-div-3-4",'style'),Output("node-div-3-5",'style'),
+    Output("edge-div-3-1",'style'),Output("edge-div-3-2",'style'),Output("edge-div-3-3",'style'),Output("edge-div-3-4",'style'),Output("edge-div-3-5",'style')], 
+    [Input("k-select-3", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k3(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-4-1",'style'),
-    Output("node-div-4-2",'style'),
-    Output("node-div-4-3",'style'),
-    Output("node-div-4-4",'style'),
-    Output("node-div-4-5",'style'),
-    Output("edge-div-4-1",'style'),
-    Output("edge-div-4-2",'style'),
-    Output("edge-div-4-3",'style'),
-    Output("edge-div-4-4",'style'),
-    Output("edge-div-4-5",'style')], 
-    [Input("k-select-4", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-4-1",'style'),Output("node-div-4-2",'style'),Output("node-div-4-3",'style'),Output("node-div-4-4",'style'),Output("node-div-4-5",'style'),
+    Output("edge-div-4-1",'style'),Output("edge-div-4-2",'style'),Output("edge-div-4-3",'style'),Output("edge-div-4-4",'style'),Output("edge-div-4-5",'style')], 
+    [Input("k-select-4", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k4(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-5-1",'style'),
-    Output("node-div-5-2",'style'),
-    Output("node-div-5-3",'style'),
-    Output("node-div-5-4",'style'),
-    Output("node-div-5-5",'style'),
-    Output("edge-div-5-1",'style'),
-    Output("edge-div-5-2",'style'),
-    Output("edge-div-5-3",'style'),
-    Output("edge-div-5-4",'style'),
-    Output("edge-div-5-5",'style')], 
-    [Input("k-select-5", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-5-1",'style'),Output("node-div-5-2",'style'),Output("node-div-5-3",'style'),Output("node-div-5-4",'style'),Output("node-div-5-5",'style'),
+    Output("edge-div-5-1",'style'),Output("edge-div-5-2",'style'),Output("edge-div-5-3",'style'),Output("edge-div-5-4",'style'),Output("edge-div-5-5",'style')], 
+    [Input("k-select-5", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k5(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-6-1",'style'),
-    Output("node-div-6-2",'style'),
-    Output("node-div-6-3",'style'),
-    Output("node-div-6-4",'style'),
-    Output("node-div-6-5",'style'),
-    Output("edge-div-6-1",'style'),
-    Output("edge-div-6-2",'style'),
-    Output("edge-div-6-3",'style'),
-    Output("edge-div-6-4",'style'),
-    Output("edge-div-6-5",'style')], 
-    [Input("k-select-6", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-6-1",'style'),Output("node-div-6-2",'style'),Output("node-div-6-3",'style'),Output("node-div-6-4",'style'),Output("node-div-6-5",'style'),
+    Output("edge-div-6-1",'style'),Output("edge-div-6-2",'style'),Output("edge-div-6-3",'style'),Output("edge-div-6-4",'style'),Output("edge-div-6-5",'style')], 
+    [Input("k-select-6", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k6(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-7-1",'style'),
-    Output("node-div-7-2",'style'),
-    Output("node-div-7-3",'style'),
-    Output("node-div-7-4",'style'),
-    Output("node-div-7-5",'style'),
-    Output("edge-div-7-1",'style'),
-    Output("edge-div-7-2",'style'),
-    Output("edge-div-7-3",'style'),
-    Output("edge-div-7-4",'style'),
-    Output("edge-div-7-5",'style')], 
-    [Input("k-select-7", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-7-1",'style'),Output("node-div-7-2",'style'),Output("node-div-7-3",'style'),Output("node-div-7-4",'style'),Output("node-div-7-5",'style'),
+    Output("edge-div-7-1",'style'),Output("edge-div-7-2",'style'),Output("edge-div-7-3",'style'),Output("edge-div-7-4",'style'),Output("edge-div-7-5",'style')], 
+    [Input("k-select-7", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k7(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-8-1",'style'),
-    Output("node-div-8-2",'style'),
-    Output("node-div-8-3",'style'),
-    Output("node-div-8-4",'style'),
-    Output("node-div-8-5",'style'),
-    Output("edge-div-8-1",'style'),
-    Output("edge-div-8-2",'style'),
-    Output("edge-div-8-3",'style'),
-    Output("edge-div-8-4",'style'),
-    Output("edge-div-8-5",'style')], 
-    [Input("k-select-8", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-8-1",'style'),Output("node-div-8-2",'style'),Output("node-div-8-3",'style'),Output("node-div-8-4",'style'),Output("node-div-8-5",'style'),
+    Output("edge-div-8-1",'style'),Output("edge-div-8-2",'style'),Output("edge-div-8-3",'style'),Output("edge-div-8-4",'style'),Output("edge-div-8-5",'style')], 
+    [Input("k-select-8", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k8(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-9-1",'style'),
-    Output("node-div-9-2",'style'),
-    Output("node-div-9-3",'style'),
-    Output("node-div-9-4",'style'),
-    Output("node-div-9-5",'style'),
-    Output("edge-div-9-1",'style'),
-    Output("edge-div-9-2",'style'),
-    Output("edge-div-9-3",'style'),
-    Output("edge-div-9-4",'style'),
-    Output("edge-div-9-5",'style')], 
-    [Input("k-select-9", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-9-1",'style'),Output("node-div-9-2",'style'),Output("node-div-9-3",'style'),Output("node-div-9-4",'style'),Output("node-div-9-5",'style'),
+    Output("edge-div-9-1",'style'),Output("edge-div-9-2",'style'),Output("edge-div-9-3",'style'),Output("edge-div-9-4",'style'),Output("edge-div-9-5",'style')], 
+    [Input("k-select-9", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k9(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
-@app.callback(
-    [
-    Output("node-div-10-1",'style'),
-    Output("node-div-10-2",'style'),
-    Output("node-div-10-3",'style'),
-    Output("node-div-10-4",'style'),
-    Output("node-div-10-5",'style'),
-    Output("edge-div-10-1",'style'),
-    Output("edge-div-10-2",'style'),
-    Output("edge-div-10-3",'style'),
-    Output("edge-div-10-4",'style'),
-    Output("edge-div-10-5",'style')], 
-    [Input("k-select-10", 'value'),
-    Input("edge-checkbox", 'value')]
-)
+@app.callback([Output("node-div-10-1",'style'),Output("node-div-10-2",'style'),Output("node-div-10-3",'style'),Output("node-div-10-4",'style'),Output("node-div-10-5",'style'),
+    Output("edge-div-10-1",'style'),Output("edge-div-10-2",'style'),Output("edge-div-10-3",'style'),Output("edge-div-10-4",'style'),Output("edge-div-10-5",'style')], 
+    [Input("k-select-10", 'value'),Input("edge-checkbox", 'value')])
 def hide_elements_k10(k,show_edge):
     show_edge = checkToBool(show_edge)
-    
-    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'}
-    node_style_2 = {'display':'block'} if k>=2 else {'display':'None'}
-    node_style_3 = {'display':'block'} if k>=3 else {'display':'None'}
-    node_style_4 = {'display':'block'} if k>=4 else {'display':'None'}
-    node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
-    
-    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'}
-    edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'}
-    edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'}
-    edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'}
-    edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
-
+    node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
+    edge_style_1 = {'display':'block'} if show_edge and k>=1 else {'display':'None'};edge_style_2 = {'display':'block'} if show_edge and k>=2 else {'display':'None'};edge_style_3 = {'display':'block'} if show_edge and k>=3 else {'display':'None'};edge_style_4 = {'display':'block'} if show_edge and k>=4 else {'display':'None'};edge_style_5 = {'display':'block'} if show_edge and k>=5 else {'display':'None'}
     return node_style_1,node_style_2,node_style_3,node_style_4,node_style_5,edge_style_1,edge_style_2,edge_style_3,edge_style_4,edge_style_5
 
 @app.callback(
@@ -1015,9 +641,13 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
                         selected_columns=[],
                         page_size=20,
                         style_table={'overflowX': 'auto'},
-                        style_header={'fontWeight': "bold"},
+                        style_header={
+                            'fontWeight': "bold",
+                            'whiteSpace': "normal",
+                            'height': "auto"},
                         style_cell={
                             'color': "#000000",
+                            'text-align': 'center'
                             #'minWidth': '90px', 
                             #'width': '90px', 
                             #'maxWidth': '90px',
@@ -1034,13 +664,6 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
             {"margin-right":"1em",'display':'block'},
             {"margin-right":"1em",'display':'block'},
             {'display':'block', 'width':'5em'})
-
-# @app.callback(
-#     Output('answer-table', 'style'),
-#     Input('submit-val', 'n_clicks'))
-# def displayAnswers():
-#     if(n_clicks <= 0): return ""
-#     return {'display':'block'}
 
 @app.callback(
     [Output('loading-2', 'children'),
@@ -1240,7 +863,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns]
         if len(failed_proteins) != 0:
             fails = ''.join([str(x)+", " for x in failed_proteins])
-            message = f"Finished retrieving protein names!\nFailed on {fails}."
+            message = f"Finished retrieving protein names!\nFailed on {fails.rstrip(', ')}."
         else:
             message = "Finished retrieving protein names!"
 
@@ -1263,36 +886,40 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         print("Running PubMed Check")
         if number == 2:
             print('number=2')
-            term1_list=dff[selected_columns[0]].tolist()
-            term2_list=dff[selected_columns[1]].tolist()
-            for (term1, term2) in zip(term1_list, term2_list):
-                key=f"{term1}:{term2}"
-                if key not in two_term_dict.keys():
-                    if(expand):
-                        two_term = f'{term1} AND {term2}'
-                    else:
-                        two_term = f'"{term1}"[All Fields] AND "{term2}"[All Fields]'
-
-                    PARAMS = {'db':'pubmed','term':two_term,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
-                    time.sleep(0.1)
-                    r = rq.get(url = URL, params = PARAMS)
-                    if(r.status_code != rq.codes.ok):
-                        time.sleep(1.0)
-                        r = rq.get(url = URL, params = PARAMS)
-                    tree = ElementTree.fromstring(r.text)
-                    cnt = int(tree.find("Count").text)
-                    print(f"{term1}-{term2}:{cnt}")
-                    two_term_dict[key] = cnt
-                else:
-                    cnt = two_term_dict[key]
-                comention_counts_1_2.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
-    
             Term1=selected_columns[0].replace('`','').replace('biolink:','')
             Term2=selected_columns[1].replace('`','').replace('biolink:','')
-            dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
+            if f"{Term1}-{Term2} counts" not in dff.columns:
+                term1_list=dff[selected_columns[0]].tolist()
+                term2_list=dff[selected_columns[1]].tolist()
+                for (term1, term2) in zip(term1_list, term2_list):
+                    key=f"{term1}:{term2}"
+                    if key not in two_term_dict.keys():
+                        if(expand):
+                            two_term = f'{term1} AND {term2}'
+                        else:
+                            two_term = f'"{term1}"[All Fields] AND "{term2}"[All Fields]'
+
+                        PARAMS = {'db':'pubmed','term':two_term,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                        time.sleep(0.1)
+                        r = rq.get(url = URL, params = PARAMS)
+                        if(r.status_code != rq.codes.ok):
+                            time.sleep(1.0)
+                            r = rq.get(url = URL, params = PARAMS)
+                        tree = ElementTree.fromstring(r.text)
+                        cnt = int(tree.find("Count").text)
+                        print(f"{term1}-{term2}:{cnt}")
+                        two_term_dict[key] = cnt
+                    else:
+                        cnt = two_term_dict[key]
+                    comention_counts_1_2.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+
+                dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
 
         elif number == 3:
             print('number=3')
+            Term1=selected_columns[0].replace('`','').replace('biolink:','')
+            Term2=selected_columns[1].replace('`','').replace('biolink:','')
+            Term3=selected_columns[2].replace('`','').replace('biolink:','')
             term1_list=dff[selected_columns[0]].tolist()
             term2_list=dff[selected_columns[1]].tolist()
             term3_list=dff[selected_columns[2]].tolist()
@@ -1312,71 +939,76 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     term_1_3 = f'"{term1}"[All Fields] AND "{term3}"[All Fields]'
                     term_2_3 = f'"{term2}"[All Fields] AND "{term3}"[All Fields]'
                     term_1_2_3 = f'"{term1}"[All Fields] AND "{term2}"[All Fields] AND "{term3}"[All Fields]'
-                    
-                if onetwokey not in two_term_dict.keys():
-                    PARAMS = {'db':'pubmed','term':term_1_2,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
-                    time.sleep(0.1)
-                    r = rq.get(url = URL, params = PARAMS)
-                    if(r.status_code != rq.codes.ok):
-                        time.sleep(1.0)
+
+                if f"{Term1}-{Term2} counts" not in dff.columns:
+                    if onetwokey not in two_term_dict.keys():
+                        PARAMS = {'db':'pubmed','term':term_1_2,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                        time.sleep(0.1)
                         r = rq.get(url = URL, params = PARAMS)
-                    tree = ElementTree.fromstring(r.text)
-                    cnt = int(tree.find("Count").text)
-                    two_term_dict[onetwokey] = cnt
-                else:
-                    cnt = two_term_dict[onetwokey]
-                comention_counts_1_2.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
-                
-                if onethreekey not in two_term_dict.keys():
-                    PARAMS = {'db':'pubmed','term':term_1_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
-                    time.sleep(0.1)
-                    r = rq.get(url = URL, params = PARAMS)
-                    if(r.status_code != rq.codes.ok):
-                        time.sleep(1.0)
+                        if(r.status_code != rq.codes.ok):
+                            time.sleep(1.0)
+                            r = rq.get(url = URL, params = PARAMS)
+                        tree = ElementTree.fromstring(r.text)
+                        cnt = int(tree.find("Count").text)
+                        two_term_dict[onetwokey] = cnt
+                    else:
+                        cnt = two_term_dict[onetwokey]
+                    comention_counts_1_2.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+
+                if f"{Term1}-{Term3} counts" not in dff.columns:
+                    if onethreekey not in two_term_dict.keys():
+                        PARAMS = {'db':'pubmed','term':term_1_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                        time.sleep(0.1)
                         r = rq.get(url = URL, params = PARAMS)
-                    tree = ElementTree.fromstring(r.text)
-                    cnt = int(tree.find("Count").text)
-                    two_term_dict[onethreekey] = cnt
-                else:
-                    cnt = two_term_dict[onethreekey]
-                comention_counts_1_3.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+                        if(r.status_code != rq.codes.ok):
+                            time.sleep(1.0)
+                            r = rq.get(url = URL, params = PARAMS)
+                        tree = ElementTree.fromstring(r.text)
+                        cnt = int(tree.find("Count").text)
+                        two_term_dict[onethreekey] = cnt
+                    else:
+                        cnt = two_term_dict[onethreekey]
+                    comention_counts_1_3.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
                 
-                if twothreekey not in two_term_dict.keys():
-                    PARAMS = {'db':'pubmed','term':term_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
-                    time.sleep(0.1)
-                    r = rq.get(url = URL, params = PARAMS)
-                    if(r.status_code != rq.codes.ok):
-                        time.sleep(1.0)
+                if f"{Term2}-{Term3} counts" not in dff.columns:
+                    if twothreekey not in two_term_dict.keys():
+                        PARAMS = {'db':'pubmed','term':term_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                        time.sleep(0.1)
                         r = rq.get(url = URL, params = PARAMS)
-                    tree = ElementTree.fromstring(r.text)
-                    cnt = int(tree.find("Count").text)
-                    two_term_dict[twothreekey] = cnt
-                else:
-                    cnt = two_term_dict[twothreekey]
-                comention_counts_2_3.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+                        if(r.status_code != rq.codes.ok):
+                            time.sleep(1.0)
+                            r = rq.get(url = URL, params = PARAMS)
+                        tree = ElementTree.fromstring(r.text)
+                        cnt = int(tree.find("Count").text)
+                        two_term_dict[twothreekey] = cnt
+                    else:
+                        cnt = two_term_dict[twothreekey]
+                    comention_counts_2_3.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
                 
-                if onetwothreekey not in three_term_dict.keys():
-                    PARAMS = {'db':'pubmed','term':term_1_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
-                    time.sleep(0.1)
-                    r = rq.get(url = URL, params = PARAMS)
-                    if(r.status_code != rq.codes.ok):
-                        time.sleep(1.0)
+                if f"{Term1}-{Term2}-{Term3} counts" not in dff.columns:
+                    if onetwothreekey not in three_term_dict.keys():
+                        PARAMS = {'db':'pubmed','term':term_1_2_3,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+                        time.sleep(0.1)
                         r = rq.get(url = URL, params = PARAMS)
-                    tree = ElementTree.fromstring(r.text)
-                    cnt = int(tree.find("Count").text)
-                    three_term_dict[onetwothreekey] = cnt
-                    print(f"{term1}-{term2}-{term3}")
-                else:
-                    cnt = three_term_dict[onetwothreekey]
-                comention_counts_1_2_3.append(f"{str(cnt)} [<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]]</a>")
+                        if(r.status_code != rq.codes.ok):
+                            time.sleep(1.0)
+                            r = rq.get(url = URL, params = PARAMS)
+                        tree = ElementTree.fromstring(r.text)
+                        cnt = int(tree.find("Count").text)
+                        three_term_dict[onetwothreekey] = cnt
+                        print(f"{term1}-{term2}-{term3}")
+                    else:
+                        cnt = three_term_dict[onetwothreekey]
+                    comention_counts_1_2_3.append(f"{str(cnt)} [<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]]</a>")
                 
-            Term1=selected_columns[0].replace('`','').replace('biolink:','')
-            Term2=selected_columns[1].replace('`','').replace('biolink:','')
-            Term3=selected_columns[2].replace('`','').replace('biolink:','')
-            dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
-            dff.insert(0, f"{Term1}-{Term3} counts", comention_counts_1_3)
-            dff.insert(0, f"{Term2}-{Term3} counts", comention_counts_2_3)
-            dff.insert(0, f"{Term1}-{Term2}-{Term3} counts", comention_counts_1_2_3)
+            if f"{Term1}-{Term2} counts" not in dff.columns:
+                dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
+            if f"{Term1}-{Term3} counts" not in dff.columns:
+                dff.insert(0, f"{Term1}-{Term3} counts", comention_counts_1_3)
+            if f"{Term2}-{Term3} counts" not in dff.columns:
+                dff.insert(0, f"{Term2}-{Term3} counts", comention_counts_2_3)
+            if f"{Term1}-{Term2}-{Term3} counts" not in dff.columns:
+                dff.insert(0, f"{Term1}-{Term2}-{Term3} counts", comention_counts_1_2_3)
 
         ammended_answers = dff.to_dict('records')
         ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": False, "presentation":"markdown"} if " counts" in i else {"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
