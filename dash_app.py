@@ -13,6 +13,9 @@ import time
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
 from Neo4jSearch import getNodeAndEdgeLabels
+import io
+import base64
+import PCA
 
 app = dash.Dash()
 app.css.append_css({'external_url': '/assets/styles.css'})
@@ -199,6 +202,9 @@ answer_table = html.Div(id='answer-table', style={'color': colors['text']})
 protein_names_answers = html.Div(id='protein-names-answers', style={'color': colors['text']})
 dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
+#create div for PCA figure output
+pca_fig = html.Img(id='pca-fig')
+
 selector = []
 for j in range(10):
     select = html.Div(id='selector-%i' % (j+1), style={'display':('None' if j != 0 else 'block')}, children=[
@@ -299,7 +305,9 @@ app.layout = html.Div(style={'padding-left': '3em','background-color': colors['b
 
         html.Div([html.Td(protein_names_button), html.Td(triangulator_button), html.Td([dwpc_button,dwpc_weight]), html.Td(load_3), html.Td(load_4)], style={'padding-bottom': '3em'}),
     
-        html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'})
+        html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'}),
+        
+        html.Div(pca_fig)
     ])
 
 selected_nodes = []
@@ -750,7 +758,8 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
 
 @app.callback(
     [Output('loading-3','children'),
-    Output('dwpc-table', 'children')],
+    Output('dwpc-table', 'children'),
+    Output('pca-fig', 'src')],
     Input('submit-dwpc-val', 'n_clicks'),
     [State('answer-table', 'children'),
     State("source-dropdown", 'value'), 
@@ -810,8 +819,10 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
                         #    'whiteSpace': "normal",
                          #   'height': "auto"},
                         export_format="csv")
-
-    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table
+    pca=PCA.performPCA(gk,2)
+    print('PCA worked!!!!!!!!!!!!!!!!!')
+    fig=PCA.visualizePCA(pca[0],pca[1])
+    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,fig
 
 @app.callback(
     [Output('answers', 'data'), Output('answers', 'columns'), Output('loading-4', 'children')],
