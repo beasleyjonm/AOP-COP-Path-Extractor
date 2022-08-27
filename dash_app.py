@@ -18,6 +18,8 @@ import base64
 import PCA
 
 app = dash.Dash()
+app.title = 'ExPAT/EmPATH'
+app._favicon = 'LogoMML.ico'
 app.css.append_css({'external_url': '/assets/styles.css'})
 
 colors = {
@@ -34,6 +36,7 @@ rk_edges=rk_nodes_and_edges[1]
 kg_dropdown = dcc.Dropdown(id="kg-dropdown",
            options=[
            {'label':"ROBOKOP", 'value':"ROBOKOP"},
+           {'label':"SCENT-KOP", 'value':"SCENT-KOP"},
            {'label':"HetioNet", 'value':"HetioNet"}],
            value="ROBOKOP",
            className='dropdownbox',
@@ -348,6 +351,9 @@ def UpdateNodeAndEdgeLabels(graph_db):
     elif graph_db == "HetioNet":
         starter = "Compound"
         ender = "Disease"
+    elif graph_db == "SCENT-KOP":
+        starter = "odorant"
+        ender = "verbal_scent_descriptor"
     rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
     rk_nodes=rk_nodes_and_edges[0]
     rk_edges=rk_nodes_and_edges[1]
@@ -613,22 +619,17 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
     i=0
     for pattern in pattern_names:
         if i < pattern_select:
-            if graph_db == "ROBOKOP":
-                k_nodes = [f"`{s}`",f"`{all_k_nodes[pattern][0]}`",f"`{all_k_nodes[pattern][1]}`",f"`{all_k_nodes[pattern][2]}`",f"`{all_k_nodes[pattern][3]}`",f"`{all_k_nodes[pattern][4]}`",f"`{t}`"]
-                clean_k_nodes = ['wildcard' if x == "`None`" else x for x in k_nodes]
-            else:
-                k_nodes = [s,all_k_nodes[pattern][0],all_k_nodes[pattern][1],all_k_nodes[pattern][2],all_k_nodes[pattern][3], all_k_nodes[pattern][4],t]
-                clean_k_nodes = ['wildcard' if x is None else x for x in k_nodes]
+            k_nodes = [f"{s}",f"{all_k_nodes[pattern][0]}",f"{all_k_nodes[pattern][1]}",f"{all_k_nodes[pattern][2]}",f"{all_k_nodes[pattern][3]}",f"{all_k_nodes[pattern][4]}",f"{t}"]
+            wildcarded_k_nodes = ['wildcard' if x == "None" else x for x in k_nodes]
+            clean_k_nodes = ['`'+x+'`' if 'biolink' in x else x for x in wildcarded_k_nodes]
             searched_nodes = {pattern:clean_k_nodes[:k_values[i]+1]+[clean_k_nodes[-1]]}
             print(searched_nodes)
             searched_nodes_dict.update(searched_nodes)
+            
             if edges_bool == True:
-                if graph_db == "ROBOKOP":
-                    k_edges = [f"`{all_k_edges[pattern][0]}`",f"`{all_k_edges[pattern][1]}`",f"`{all_k_edges[pattern][2]}`",f"`{all_k_edges[pattern][3]}`",f"`{all_k_edges[pattern][4]}`",f"`{t_edges}`"]
-                    clean_k_edges = ['wildcard' if x == "`None`" else x for x in k_edges]
-                else:
-                    k_edges = [all_k_edges[pattern][0],all_k_edges[pattern][1],all_k_edges[pattern][2],all_k_edges[pattern][3],all_k_edges[pattern][4],t_edges]
-                    clean_k_edges = ['wildcard' if y is None else y for y in k_edges]
+                k_edges = [f"{all_k_edges[pattern][0]}",f"{all_k_edges[pattern][1]}",f"{all_k_edges[pattern][2]}",f"{all_k_edges[pattern][3]}",f"{all_k_edges[pattern][4]}",f"{t_edges}"]
+                wildcarded_k_edges = ['wildcard' if x == "None" else x for x in k_edges]
+                clean_k_edges = ['`'+x+'`' if 'biolink' in x else x for x in wildcarded_k_edges]
             else:
                 clean_k_edges = ['wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard']
             searched_edges={pattern:clean_k_edges[:k_values[i]]+[clean_k_edges[-1]]}
@@ -691,10 +692,20 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
     if(n_clicks <= 0): return ""
     starts = processInputText(start_terms)
     ends = processInputText(end_terms)
+    if 'biolink' in start_label:
+        startLabel = f"`{start_label}`"
+    else:
+        startLabel = start_label
+    if 'biolink' in end_label:
+        endLabel = f"`{end_label}`"
+    else:
+        endLabel = end_label
     if graph_db == "ROBOKOP":
         link = "bolt://robokopkg.renci.org"
     elif graph_db == "HetioNet":
         link = "bolt://neo4j.het.io"
+    elif graph_db == "SCENT-KOP":
+        link = "bolt://scentkop.apps.renci.org"
     G = py2neo.Graph(link)
    # nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
     start_message = ""
@@ -703,9 +714,9 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
         nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
         a=len(nodes_output['node name'])
         if graph_db == "ROBOKOP":
-            query = f"MATCH (n{':`'+start_label+'`' if start_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
-        elif graph_db == "HetioNet":
-            query = f"MATCH (n{':'+start_label if start_label != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
+            query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
+        else:
+            query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
@@ -719,10 +730,10 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
         if term in nodes_output["node name"]:
             if graph_db == "ROBOKOP":
                 start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
-            elif graph_db == "HetioNet":
+            else:
                 start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
         else:
-            if graph_db != "HetioNet":
+            if graph_db == "ROBOKOP":
                 start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"
             else:
                 start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n"
@@ -730,9 +741,9 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
         nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
         a=len(nodes_output['node name'])
         if graph_db == "ROBOKOP":
-            query = f"MATCH (n{':`'+end_label+'`' if end_label != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
-        elif graph_db == "HetioNet":
-            query = f"MATCH (n{':'+end_label if end_label != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
+            query = f"MATCH (n{':'+endLabel if endLabel != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
+        else:
+            query = f"MATCH (n{':'+endLabel if endLabel != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
@@ -746,10 +757,10 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
         if term in nodes_output["node name"]:
             if graph_db == "ROBOKOP":
                 end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
-            elif graph_db == "HetioNet":
+            else:
                 end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
         else:
-            if graph_db != "HetioNet":
+            if graph_db == "ROBOKOP":
                 end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"             
             else:
                 end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n"
@@ -820,8 +831,7 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
                          #   'height': "auto"},
                         export_format="csv")
     pca=PCA.performPCA(gk,2)
-    print('PCA worked!!!!!!!!!!!!!!!!!')
-    fig=PCA.visualizePCA(pca[0],pca[1])
+    fig=PCA.visualizePCA(pca[0],pca[1],False)
     return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,fig
 
 @app.callback(
@@ -1031,5 +1041,5 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
  #############################################################    
 
 if __name__ == '__main__':
-    #app.run_server()
-    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
+    app.run_server()
+    #app.run_server(host='0.0.0.0', port=80,debug=True) #For production

@@ -1,15 +1,24 @@
 import pandas as pd
 import py2neo
 
+def processInputText(text):
+    l1 = []
+    for line in text.split('\n'):
+        a = line
+        if a != "":
+            l1.append(a.strip())
+    return l1
+
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
 #Measured and it IS faster than Version 1.
-
 def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
     if graph_db == "ROBOKOP":
         link = "bolt://robokopkg.renci.org"
     elif graph_db == "HetioNet":
         link = "bolt://neo4j.het.io"
+    elif graph_db == "SCENT-KOP":
+        link = "bolt://scentkop.apps.renci.org"
     G = py2neo.Graph(link)
     limit = str(limit_results)
     robokop_output = {}
@@ -25,20 +34,20 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
         for i in range(k):
             if i==0:
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                if graph_db != 'HetioNet':
+                if graph_db == "ROBOKOP":
                     robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                if graph_db != 'HetioNet':
+                if graph_db == "ROBOKOP":
                     robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                     robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             else:
                 robokop_output.update({f"node{i}:{nodes[p][i]}":[]})
-                if graph_db != 'HetioNet':
+                if graph_db == "ROBOKOP":
                     robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
                 
@@ -67,7 +76,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
                     que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
                 q = que
                 
-        if graph_db != 'HetioNet':
+        if graph_db == "ROBOKOP":
             for i in range(k):
                 firstbracket = "{"
                 secondbracket = "}"
@@ -122,6 +131,8 @@ def getNodeAndEdgeLabels(graph_db):
         link = "bolt://robokopkg.renci.org"
     elif graph_db == "HetioNet":
         link = "bolt://neo4j.het.io"
+    elif graph_db == "SCENT-KOP":
+        link = "bolt://scentkop.apps.renci.org"
     G = py2neo.Graph(link)
     rk_nodes=[]
     rk_edges=[]

@@ -3,6 +3,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from matplotlib.pyplot import cm
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import numpy as np
 import io
 import base64
@@ -25,20 +26,25 @@ def performPCA(df,dimensions):
 
     return [finalDf,expVariance]
 
-def visualizePCA(pcaData,expVariance):
+def visualizePCA(pcaData,expVariance,use_labels=True):
     fig = plt.figure(figsize = (8,8))
     ax = fig.add_subplot(1,1,1) 
     ax.set_xlabel(f"Principal Component 1; Variance:{expVariance[0]}", fontsize = 15)
     ax.set_ylabel(f"Principal Component 2; Variance:{expVariance[1]}", fontsize = 15)
     ax.set_title('2 component PCA', fontsize = 20)
     targets = [x for x in pcaData['target']]
-    color = cm.rainbow(np.linspace(0, 1, len(targets)))
-    for target, color in zip(targets,color):
+    colors = cm.rainbow(np.linspace(0, 1, len(targets)))
+    for target, color in zip(targets,colors):
         indicesToKeep = pcaData['target'] == target
         ax.scatter(pcaData.loc[indicesToKeep, 'principal component 1']
                 , pcaData.loc[indicesToKeep, 'principal component 2']
-                , c = color
+                , color = color
                 , s = 50)
+        if use_labels==True:
+            plt.text(pcaData.loc[indicesToKeep, 'principal component 1']
+                    , pcaData.loc[indicesToKeep, 'principal component 2']
+                    , target
+                    , fontsize=10)
     ax.legend(targets)
     ax.grid()
 
