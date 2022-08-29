@@ -43,17 +43,17 @@ kg_dropdown = dcc.Dropdown(id="kg-dropdown",
            clearable=False)
 
 source_dropdown = dcc.Dropdown(id="source-dropdown",
-           options=[{'label':x, 'value':x} for x in rk_nodes],
+           options=[{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
            value="biolink:ChemicalEntity",
            clearable=False)
 
 tail_dropdown = dcc.Dropdown(id="tail-dropdown",
-           options=[{'label':x, 'value':x} for x in rk_nodes],
+           options=[{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
            value="biolink:DiseaseOrPhenotypicFeature",
            clearable=False)
 
 node_drop = dcc.Dropdown(id="node-dropdown",
-    options=[{'label':x, 'value':x} for x in rk_nodes],
+    options=[{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
    multi=False
 )
 
@@ -160,8 +160,7 @@ starts = html.Div([
         id='starts',
         value=
 '''Triphenyl phosphate
-Aldicarb
-2-Ethylhexyl diphenyl phosphate
+Bisphenol A
 Pyrene
 Tricresyl phosphate''',
         placeholder="Leave blank to include *any* start entities...",
@@ -183,6 +182,7 @@ protein_names_button = html.Button('Get Protein Names', id='submit-protein-names
 triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
 dwpc_button = html.Button('Submit DWPC', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
 dwpc_weight = dcc.Input(id="dwpc-weight-select",
+                        value=0,
                         type='number',
                         min=0,
                         max=1,
@@ -206,7 +206,10 @@ protein_names_answers = html.Div(id='protein-names-answers', style={'color': col
 dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
 #create div for PCA figure output
-pca_fig = html.Img(id='pca-fig')
+#pca_fig = html.Img(id='pca-fig')
+pca_button = html.Button('Perform Principal Component Analysis', id='submit-pca-vis', n_clicks=0, style={"display":'None'})
+pca_fig_2comp = dcc.Graph(id='pca-fig-2comp',className="scatterplot",style={'display':'None'})
+pca_fig_3comp = dcc.Graph(id='pca-fig-3comp',className="scatterplot",style={'display':'None'})
 
 selector = []
 for j in range(10):
@@ -306,11 +309,15 @@ app.layout = html.Div(style={'padding-left': '3em','background-color': colors['b
     
         html.Div([answer_table, protein_names_answers], style={'width': '120em', 'padding-bottom': '1em'}),
 
-        html.Div([html.Td(protein_names_button), html.Td(triangulator_button), html.Td([dwpc_button,dwpc_weight]), html.Td(load_3), html.Td(load_4)], style={'padding-bottom': '3em'}),
+        html.Div([html.Td(protein_names_button), html.Td(triangulator_button), html.Td(dwpc_button),html.Td(dwpc_weight),html.Td(load_3), html.Td(load_4)], style={'padding-bottom': '3em'}),
     
         html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'}),
+
+        html.Div(pca_button),
         
-        html.Div(pca_fig)
+        html.Div(pca_fig_2comp),
+
+        html.Div(pca_fig_3comp),
     ])
 
 selected_nodes = []
@@ -357,8 +364,8 @@ def UpdateNodeAndEdgeLabels(graph_db):
     rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
     rk_nodes=rk_nodes_and_edges[0]
     rk_edges=rk_nodes_and_edges[1]
-    node_options = [{'label':x, 'value':x} for x in rk_nodes]
-    edge_options = [{'label':x, 'value':x} for x in rk_edges]
+    node_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes]
+    edge_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_edges]
     print(node_options)
     return (starter, node_options,ender,
     node_options,node_options,node_options,node_options,
@@ -641,12 +648,13 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
     ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,10000000)
     answersdf = ans
     answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
-                        columns=[{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
+                        columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
                         sort_action='native',
                         filter_action="native",
                         column_selectable="multi",
                         row_selectable="single",
+                        selected_rows=[],
                         selected_columns=[],
                         page_size=20,
                         style_table={'overflowX': 'auto'},
@@ -770,13 +778,13 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
 @app.callback(
     [Output('loading-3','children'),
     Output('dwpc-table', 'children'),
-    Output('pca-fig', 'src')],
+    Output('submit-pca-vis', 'style')],
     Input('submit-dwpc-val', 'n_clicks'),
     [State('answer-table', 'children'),
     State("source-dropdown", 'value'), 
     State("tail-dropdown", 'value'),
     State("dwpc-weight-select", 'value')])
-def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
+def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     if(n_clicks <= 0): return ""
     #dff = pd.DataFrame.from_dict(answer_datatable)
     dff = pd.DataFrame(answer_datatable['props']['data'])
@@ -813,9 +821,11 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
     first=gk.columns[0][6:]
     second=gk.columns[1][6:]
     gk.rename(columns={gk.columns[0]:first,gk.columns[1]:second}, inplace = True)
-    dwpc_table = dash_table.DataTable(data=gk.to_dict('records'),
-                        columns=[{"name": i, "id": i, "hideable": True} for i in gk.columns],
+    dwpc_table = dash_table.DataTable(id="dwpc",data=gk.to_dict('records'),
+                        columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True} for i in gk.columns],
                         sort_action='native',
+                        row_selectable="multi",
+                        selected_rows=[],
                         page_size=20,
                         style_table={'overflowX': 'auto'},
                         style_cell={'color': "#000000",
@@ -830,9 +840,28 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type, end_type,w):
                         #    'whiteSpace': "normal",
                          #   'height': "auto"},
                         export_format="csv")
-    pca=PCA.performPCA(gk,2)
-    fig=PCA.visualizePCA(pca[0],pca[1],False)
-    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,fig
+    style={'display':'block'}
+    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,style
+    
+@app.callback([Output('pca-fig-2comp', 'figure'),
+    Output('pca-fig-3comp', 'figure'),
+    Output('pca-fig-2comp', 'style'),
+    Output('pca-fig-3comp', 'style')],
+    Input('submit-pca-vis', 'n_clicks'),
+    [State('dwpc-table', 'children'),
+    State('dwpc', 'selected_rows')])
+def VisualizePCA(n_clicks,dwpc_datatable,positive_rows):
+    if(n_clicks <= 0): return ""
+    gk = pd.DataFrame(dwpc_datatable['props']['data'])
+    positives=[]
+    for i in positive_rows:
+        pos=f"{gk.iat[i,0]}-{gk.iat[i,1]}"
+        positives.append(pos)
+    pca2comp=PCA.performPCA(gk,positives,2)
+    pca3comp=PCA.performPCA(gk,positives,3)
+    style={'display':'block'}#,'width':'1000px','height':'1000px'}
+
+    return [pca2comp,pca3comp,style,style]
 
 @app.callback(
     [Output('answers', 'data'), Output('answers', 'columns'), Output('loading-4', 'children')],
