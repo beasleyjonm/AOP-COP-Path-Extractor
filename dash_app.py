@@ -13,6 +13,7 @@ import time
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
 from Neo4jSearch import getNodeAndEdgeLabels
+from VisualizePaths import VisualizeAnswerRow
 import io
 import base64
 import PCA
@@ -159,10 +160,21 @@ starts = html.Div([
     dcc.Textarea(
         id='starts',
         value=
-'''Triphenyl phosphate
-Bisphenol A
-Pyrene
-Tricresyl phosphate''',
+'''Donepezil
+Galantamine
+Epicriptine
+Acetyl-L-carnitine
+Ipidacrine
+Memantine
+Rivastigmine
+Tacrine
+Cadmium
+Aluminum
+Copper
+pesticide
+Ziprasidone
+Naltrexone
+''',
         placeholder="Leave blank to include *any* start entities...",
         className='searchTerms'
 )])
@@ -171,7 +183,7 @@ ends = html.Div([
     html.Div(html.B(children='Ending Points:\n')),
     dcc.Textarea(
         id='ends',
-        value='''Neurodevelopmental Disorders''',
+        value='''Alzheimer disease''',
         placeholder="Leave blank to include *any* end entities...",
         className='searchTerms'
     )])
@@ -205,12 +217,22 @@ answer_table = html.Div(id='answer-table', style={'color': colors['text']})
 protein_names_answers = html.Div(id='protein-names-answers', style={'color': colors['text']})
 dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
-#create div for PCA figure output
-#pca_fig = html.Img(id='pca-fig')
+#create elements for PCA figures
+pca_positives = html.Div([
+html.Div(html.B(children='Type Positive Start and End Terms, separated by "-":')),
+    dcc.Textarea(id='pca-positives',
+        placeholder="Leave blank to perform unlabelled PCA...",
+        className='searchTerms')],
+        id='pos-search-box',
+        style={"display":"None"})
 pca_button = html.Button('Perform Principal Component Analysis', id='submit-pca-vis', n_clicks=0, style={"display":'None'})
 pca_fig_2comp = dcc.Graph(id='pca-fig-2comp',className="scatterplot",style={'display':'None'})
 pca_fig_3comp = dcc.Graph(id='pca-fig-3comp',className="scatterplot",style={'display':'None'})
 
+#Create elements to visualize subgraphs
+subgraph_fig = html.Img(id='subgraph-fig')
+
+#Create selector element to specify graph search queries.
 selector = []
 for j in range(10):
     select = html.Div(id='selector-%i' % (j+1), style={'display':('None' if j != 0 else 'block')}, children=[
@@ -262,7 +284,7 @@ row0 = html.Tr(selector)
 tbody = html.Tbody([row0, row1])
 table = html.Table(tbody, style={'color': colors['text']})
 
-app.layout = html.Div(style={'padding-left': '3em','background-color': colors['background'], 'color': colors['text']}, children=[
+app.layout = html.Div(style={'margin':'2%','background-color': colors['background'], 'color': colors['text']}, children=[
 
         html.Div(html.Tr(html.B(children='Welcome to ExPAT (Extracting and Exploring Explanatory Pathways About Therapeutics)!')),
             style={'padding-top':'1em','padding-bottom':'1em','font-size':'40px'}), 
@@ -307,13 +329,15 @@ app.layout = html.Div(style={'padding-left': '3em','background-color': colors['b
                 
         html.Div([submit_button, term_map_button, load, load_2], style={'padding-bottom': '3em'}),
     
-        html.Div([answer_table, protein_names_answers], style={'width': '120em', 'padding-bottom': '1em'}),
+        html.Div([html.Td(answer_table,style={'maxWidth':'70%',"vertical-align":"top"}),html.Td(subgraph_fig,style={"vertical-align":"top"})]),
 
-        html.Div([html.Td(protein_names_button), html.Td(triangulator_button), html.Td(dwpc_button),html.Td(dwpc_weight),html.Td(load_3), html.Td(load_4)], style={'padding-bottom': '3em'}),
+        html.Div([html.Td(protein_names_button), html.Td(triangulator_button),html.Td(load_4)]),
+        
+        html.Div([html.Td(dwpc_button),html.Td(dwpc_weight),html.Td(load_3)],style={'padding-bottom': '3em'}),
     
-        html.Div(dwpc_table, style={'width': '120em', 'padding-bottom': '3em'}),
+        html.Div(dwpc_table, style={'width': '120em','padding-bottom':'1em'}),
 
-        html.Div(pca_button),
+        html.Div([html.Td(pca_positives),html.Td(pca_button)], style={"vertical-align":"middle"}),
         
         html.Div(pca_fig_2comp),
 
@@ -776,9 +800,20 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
     return ([f"{graph_db} Term Mapping Complete!"],start_message,{"display":'block'},end_message,{"display":'block'})
 
 @app.callback(
+    Output('subgraph-fig','src'),
+    Input('answers','selected_rows'),
+    State('answer-table','children'))
+def ShowAnswerSubgraph(selected_row,answer_datatable):
+    if len(selected_row)<1: return ""
+    dff = pd.DataFrame(answer_datatable['props']['data'])
+    fig = VisualizeAnswerRow(dff,selected_row[0])
+    return fig
+
+@app.callback(
     [Output('loading-3','children'),
     Output('dwpc-table', 'children'),
-    Output('submit-pca-vis', 'style')],
+    Output('submit-pca-vis', 'style'),
+    Output('pos-search-box', 'style')],
     Input('submit-dwpc-val', 'n_clicks'),
     [State('answer-table', 'children'),
     State("source-dropdown", 'value'), 
@@ -824,24 +859,24 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     dwpc_table = dash_table.DataTable(id="dwpc",data=gk.to_dict('records'),
                         columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True} for i in gk.columns],
                         sort_action='native',
+                        filter_action="native",
                         row_selectable="multi",
                         selected_rows=[],
                         page_size=20,
                         style_table={'overflowX': 'auto'},
-                        style_cell={'color': "#000000",
-                            #'minWidth': '60px', 
-                            #'width': '60px', 
-                            #'maxWidth': '60px',
+                        style_header={
+                            'fontWeight': "bold",
                             'whiteSpace': "normal",
                             'height': "auto"},
-                        style_header={
-                            'fontWeight': "bold"},
-                        #style_data={
-                        #    'whiteSpace': "normal",
-                         #   'height': "auto"},
+                        style_cell={'color': "#000000",
+                            'text-align': 'center'},
+                        style_data={
+                            'whiteSpace': "normal",
+                            'height': "auto"},
                         export_format="csv")
+
     style={'display':'block'}
-    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,style
+    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,style,style
     
 @app.callback([Output('pca-fig-2comp', 'figure'),
     Output('pca-fig-3comp', 'figure'),
@@ -849,14 +884,15 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     Output('pca-fig-3comp', 'style')],
     Input('submit-pca-vis', 'n_clicks'),
     [State('dwpc-table', 'children'),
-    State('dwpc', 'selected_rows')])
+    State('pca-positives', 'value')])
 def VisualizePCA(n_clicks,dwpc_datatable,positive_rows):
+    positives=processInputText(positive_rows)
     if(n_clicks <= 0): return ""
     gk = pd.DataFrame(dwpc_datatable['props']['data'])
-    positives=[]
-    for i in positive_rows:
-        pos=f"{gk.iat[i,0]}-{gk.iat[i,1]}"
-        positives.append(pos)
+    # positives=[]
+    # for i in positive_rows:
+    #     pos=f"{gk.iat[i,0]}-{gk.iat[i,1]}"
+    #     positives.append(pos)
     pca2comp=PCA.performPCA(gk,positives,2)
     pca3comp=PCA.performPCA(gk,positives,3)
     style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
@@ -880,7 +916,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 
         genes = dict()
         proteins = list()
-        protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
+        protname_df = pd.read_csv("AOP-COP-Path-Extractor\hgnc_complete_set.csv", encoding="utf-8")
 
         for col in gene_cols:
             genes[col] = dff[col].tolist() 
@@ -911,7 +947,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
             print(dff.columns)
 
         ammended_answers = dff.to_dict('records')
-        ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns]
+        ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns]
         if len(failed_proteins) != 0:
             fails = ''.join([str(x)+", " for x in failed_proteins])
             message = f"Finished retrieving protein names!\nFailed on {fails.rstrip(', ')}."
@@ -1062,7 +1098,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                 dff.insert(0, f"{Term1}-{Term2}-{Term3} counts", comention_counts_1_2_3)
 
         ammended_answers = dff.to_dict('records')
-        ammended_columns = [{"name": i, "id": i, "hideable": True, "selectable": False, "presentation":"markdown"} if " counts" in i else {"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
+        ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": False, "presentation":"markdown"} if " counts" in i else {"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
         message = "Finished retrieving PubMed Abstract Co-Mentions!"
         return (ammended_answers, ammended_columns, message)
     else:

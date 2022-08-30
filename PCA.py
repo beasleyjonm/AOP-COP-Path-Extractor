@@ -46,8 +46,8 @@ def performPCA(df,positives,dimensions):
                                 labels=dict(PC1=f"PC1 (Variance:{pc1_var})",
                                             PC2=f"PC2 (Variance:{pc2_var})",
                                             outcome="Target Class"))
-    if target_length<=1000:
-        if dimensions==3:        
+    if dimensions==3:
+        if target_length<=1000:        
             pc1_var="{:.2f}".format(expVariance[0])
             pc2_var="{:.2f}".format(expVariance[1])
             pc3_var="{:.2f}".format(expVariance[2])
@@ -67,8 +67,8 @@ def performPCA(df,positives,dimensions):
                                                 PC2=f"PC2 (Variance:{pc2_var})",
                                                 PC3=f"PC3 (Variance:{pc3_var})",
                                                 outcome="Target Class"))
-    else:
-        return ""
+        else:
+            return ""
     if target_length>10:
         plotly_fig.update_layout(showlegend=False)
     return plotly_fig
