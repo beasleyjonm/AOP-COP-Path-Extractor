@@ -646,7 +646,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
         else:
             break
     ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,10000000)
-    answersdf = ans
+    answersdf = ans.drop_duplicates()
     answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
                         columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
@@ -859,9 +859,10 @@ def VisualizePCA(n_clicks,dwpc_datatable,positive_rows):
         positives.append(pos)
     pca2comp=PCA.performPCA(gk,positives,2)
     pca3comp=PCA.performPCA(gk,positives,3)
-    style={'display':'block'}#,'width':'1000px','height':'1000px'}
+    style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
+    style3comp={'display':f"{'None' if pca3comp=='' else 'block'}"}
 
-    return [pca2comp,pca3comp,style,style]
+    return [pca2comp,pca3comp,style2comp,style3comp]
 
 @app.callback(
     [Output('answers', 'data'), Output('answers', 'columns'), Output('loading-4', 'children')],

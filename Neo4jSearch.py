@@ -133,9 +133,14 @@ def getNodeAndEdgeLabels(graph_db):
         link = "bolt://neo4j.het.io"
     elif graph_db == "SCENT-KOP":
         link = "bolt://scentkop.apps.renci.org"
-    G = py2neo.Graph(link)
     rk_nodes=[]
     rk_edges=[]
+    try:
+        G = py2neo.Graph(link)
+    except:
+        rk_nodes=['No Available Nodes: Connection Broken']
+        rk_edges=['No Available Edges: Connection Broken']
+        return (rk_nodes, rk_edges)
     query_1 = f"call db.labels"
     matches_1 = G.run(query_1)
     for m in matches_1:
