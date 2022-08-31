@@ -1158,5 +1158,5 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
  #############################################################    
 
 if __name__ == '__main__':
-    app.run_server()
-    #app.run_server(host='0.0.0.0', port=80,debug=True) #For production
+    #app.run_server()
+    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
