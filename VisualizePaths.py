@@ -36,8 +36,9 @@ def VisualizeAnswerRow(df,selected_row):
     node_cols = []
     edge_cols = []
     for col in cols:
-        if col.count('node')==1 and df.at[selected_row,col]!="?" and "protein names" not in col:
-            node_cols.append(col)
+        if col.count('node')==1 and df.at[selected_row,col]!="?":
+            if "protein names" not in col:
+                node_cols.append(col)
         elif col.count('edge')==1 and df.at[selected_row,col]!="?":
             edge_cols.append(col)
     human_sort(node_cols)
@@ -56,40 +57,31 @@ def VisualizeAnswerRow(df,selected_row):
     for i in range(len(added_edges)):
         G.add_edge(added_nodes[i],added_nodes[i+1], type=added_edges[i].replace('biolink:',''))
     edge_labels = nx.get_edge_attributes(G,'type')
-    plt.figure(figsize = (2,8))
+    fig = plt.figure(figsize = (5,8))
+    plt.gca().set_facecolor('blue') #Background color of the whole app
     pos={}
     y=0
     for n in added_nodes:
         n_pos={n:[0,y]}
         pos.update(n_pos)
         y+=(-2)
-    #pos = nx.spectral_layout(G)
-    nx.draw(G, pos, with_labels=True, node_size=1000, font_weight='bold')
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-    # ax = fig.add_subplot(1,1,1) 
-    # ax.set_xlabel(f"Principal Component 1; Variance:{expVariance[0]}", fontsize = 15)
-    # ax.set_ylabel(f"Principal Component 2; Variance:{expVariance[1]}", fontsize = 15)
-    # ax.set_title('2 component PCA', fontsize = 20)
-    # targets = [x for x in pcaData['target']]
-    # colors = cm.rainbow(np.linspace(0, 1, len(targets)))
-    # for target, color in zip(targets,colors):
-    #     indicesToKeep = pcaData['target'] == target
-    #     ax.scatter(pcaData.loc[indicesToKeep, 'principal component 1']
-    #             , pcaData.loc[indicesToKeep, 'principal component 2']
-    #             , color = color
-    #             , s = 50)
-    #     if use_labels==True:
-    #         plt.text(pcaData.loc[indicesToKeep, 'principal component 1']
-    #                 , pcaData.loc[indicesToKeep, 'principal component 2']
-    #                 , target
-    #                 , fontsize=10)
-    # ax.legend(targets)#, loc='center left', bbox_to_anchor=(1, 0.5))
-    # ax.grid()
-    
+    nx.draw(G, pos, with_labels=True, node_size=2000, font_weight='bold')
+    # for p in pos:  # raise text positions
+    #     t=list(pos[p])
+    #     t[0]=t[0]+0.1
+    #     pos[p]=tuple(t)
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels,horizontalalignment='left',bbox=dict(alpha=0))
+    fig.set_facecolor('#7794B8')
     buf = io.BytesIO() # in-memory files
-    
     plt.savefig(buf, format = "png") # save to the above file object
     plt.close()
     data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
 
     return "data:image/png;base64,{}".format(data)
+
+def VisualizePubmedCounts(df,selected_row):
+    for col in cols:
+        if col.count('node')==1 and df.at[selected_row,col]!="?" and "protein names" not in col:
+            node_cols.append(col)
+        elif col.count('edge')==1 and df.at[selected_row,col]!="?":
+            edge_cols.append(col)

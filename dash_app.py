@@ -13,13 +13,14 @@ import time
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
 from Neo4jSearch import getNodeAndEdgeLabels
+import VisualizePaths
 from VisualizePaths import VisualizeAnswerRow
 import io
 import base64
 import PCA
 
 app = dash.Dash()
-app.title = 'ExPAT/EmPATH'
+app.title = 'ExEmPLAR'
 app._favicon = 'LogoMML.ico'
 app.css.append_css({'external_url': '/assets/styles.css'})
 
@@ -230,7 +231,7 @@ pca_fig_2comp = dcc.Graph(id='pca-fig-2comp',className="scatterplot",style={'dis
 pca_fig_3comp = dcc.Graph(id='pca-fig-3comp',className="scatterplot",style={'display':'None'})
 
 #Create elements to visualize subgraphs
-subgraph_fig = html.Img(id='subgraph-fig')
+subgraph_fig = html.Img(id='subgraph-fig', style={'height':'100%'})
 
 #Create selector element to specify graph search queries.
 selector = []
@@ -286,7 +287,7 @@ table = html.Table(tbody, style={'color': colors['text']})
 
 app.layout = html.Div(style={'margin':'2%','background-color': colors['background'], 'color': colors['text']}, children=[
 
-        html.Div(html.Tr(html.B(children='Welcome to ExPAT (Extracting and Exploring Explanatory Pathways About Therapeutics)!')),
+        html.Div(html.Tr(html.B(children='Welcome to ExEmPLAR (Extracting, Exploring and Embedding Pathways Leading to Actionable Research)!')),
             style={'padding-top':'1em','padding-bottom':'1em','font-size':'40px'}), 
         
         html.Div([html.B(children='To begin:'),
@@ -303,11 +304,16 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
                 html.Td(children=[pattern_select]),
                 html.Td(edge_checkbox, style={'vertical-align':'bottom'})]),
 
-            html.Div(children=selector, style={'padding-bottom': '3em'}),
-        
+            html.Tr(children='(3) Build a series of explanatory intermediates node and/or edge types between Start and End.'),
+
+            html.Div(children=selector, style={'padding-bottom': '3em','padding-top': '1em'}),
+
+            html.Tr(children='(4) Type names of specific Start and End entities of interest.'),
+
             html.Div([html.Td(starts),
                     html.Td(ends),
-                    html.Td(start_map_output),html.Td(end_map_output)]),
+                    html.Td(start_map_output),html.Td(end_map_output)], 
+                    style={'padding-top': '1em'}),
         
         # html.Td([html.Tr(html.B(children='To begin:')),
         #         html.Tr(children='(1) Select a biomedical knowledge graph source.'),
@@ -329,7 +335,7 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
                 
         html.Div([submit_button, term_map_button, load, load_2], style={'padding-bottom': '3em'}),
     
-        html.Div([html.Td(answer_table,style={'maxWidth':'70%',"vertical-align":"top"}),html.Td(subgraph_fig,style={"vertical-align":"top"})]),
+        html.Div([html.Td(answer_table,style={'maxWidth':'70%',"vertical-align":"top"}),html.Td(subgraph_fig,style={"vertical-align":"top",'height':'100%'})]),
 
         html.Div([html.Td(protein_names_button), html.Td(triangulator_button),html.Td(load_4)]),
         
@@ -674,7 +680,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
     answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
                         columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
-                        sort_action='native',
+                        sort_action="native",
                         filter_action="native",
                         column_selectable="multi",
                         row_selectable="single",
@@ -901,7 +907,7 @@ def VisualizePCA(n_clicks,dwpc_datatable,positive_rows):
     return [pca2comp,pca3comp,style2comp,style3comp]
 
 @app.callback(
-    [Output('answers', 'data'), Output('answers', 'columns'), Output('loading-4', 'children')],
+    [Output('answers', 'data'), Output('answers', 'columns'), Output('answers','hidden_columns'),Output('loading-4', 'children')],
     [Input('submit-protein-names', 'n_clicks'), Input('submit-triangulator-val', 'n_clicks')],
     [State('answer-table', 'children'), State('answers', 'selected_columns')])
 def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,selected_columns):
@@ -964,9 +970,13 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         two_term_dict = dict()
         three_term_dict = dict()
         comention_counts_1_2 = list()
+        comention_counts_1_2_link = list()
         comention_counts_1_3 = list()
+        comention_counts_1_3_link = list()
         comention_counts_2_3 = list()
+        comention_counts_2_3_link = list()
         comention_counts_1_2_3 = list()
+        comention_counts_1_2_3_link = list()
         URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
         if number not in [2,3]:
             return dff.to_dict('records'), [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns], "Please select 2 or 3 node columns for PubMed search."
@@ -998,9 +1008,11 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                         two_term_dict[key] = cnt
                     else:
                         cnt = two_term_dict[key]
-                    comention_counts_1_2.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
-
+                    comention_counts_1_2.append(cnt)
+                    comention_counts_1_2_link.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+    
                 dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
+                dff.insert(0, f"{Term1}-{Term2} link", comention_counts_1_2_link)
 
         elif number == 3:
             print('number=3')
@@ -1040,7 +1052,8 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                         two_term_dict[onetwokey] = cnt
                     else:
                         cnt = two_term_dict[onetwokey]
-                    comention_counts_1_2.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+                    comention_counts_1_2.append(cnt)
+                    comention_counts_1_2_link.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
 
                 if f"{Term1}-{Term3} counts" not in dff.columns:
                     if onethreekey not in two_term_dict.keys():
@@ -1055,7 +1068,8 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                         two_term_dict[onethreekey] = cnt
                     else:
                         cnt = two_term_dict[onethreekey]
-                    comention_counts_1_3.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+                    comention_counts_1_3.append(cnt)
+                    comention_counts_1_3_link.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
                 
                 if f"{Term2}-{Term3} counts" not in dff.columns:
                     if twothreekey not in two_term_dict.keys():
@@ -1070,7 +1084,8 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                         two_term_dict[twothreekey] = cnt
                     else:
                         cnt = two_term_dict[twothreekey]
-                    comention_counts_2_3.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+                    comention_counts_2_3.append(cnt)
+                    comention_counts_2_3_link.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
                 
                 if f"{Term1}-{Term2}-{Term3} counts" not in dff.columns:
                     if onetwothreekey not in three_term_dict.keys():
@@ -1086,21 +1101,57 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                         print(f"{term1}-{term2}-{term3}")
                     else:
                         cnt = three_term_dict[onetwothreekey]
-                    comention_counts_1_2_3.append(f"{str(cnt)} [<a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]]</a>")
+                    comention_counts_1_2_3.append(cnt)
+                    comention_counts_1_2_3_link.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
                 
             if f"{Term1}-{Term2} counts" not in dff.columns:
                 dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
+            if f"{Term1}-{Term2} link" not in dff.columns:
+                dff.insert(0, f"{Term1}-{Term2} link", comention_counts_1_2_link)
             if f"{Term1}-{Term3} counts" not in dff.columns:
                 dff.insert(0, f"{Term1}-{Term3} counts", comention_counts_1_3)
+            if f"{Term1}-{Term3} link" not in dff.columns:
+                dff.insert(0, f"{Term1}-{Term3} link", comention_counts_1_3_link)
             if f"{Term2}-{Term3} counts" not in dff.columns:
                 dff.insert(0, f"{Term2}-{Term3} counts", comention_counts_2_3)
+            if f"{Term2}-{Term3} link" not in dff.columns:
+                dff.insert(0, f"{Term2}-{Term3} link", comention_counts_2_3_link)
             if f"{Term1}-{Term2}-{Term3} counts" not in dff.columns:
                 dff.insert(0, f"{Term1}-{Term2}-{Term3} counts", comention_counts_1_2_3)
+            if f"{Term1}-{Term2}-{Term3} link" not in dff.columns:
+                dff.insert(0, f"{Term1}-{Term2}-{Term3} link", comention_counts_1_2_3_link)
 
         ammended_answers = dff.to_dict('records')
-        ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": False, "presentation":"markdown"} if " counts" in i else {"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
+        ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable":True, "selectable": False, "presentation":"markdown"} if " link" in i else {"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
+        hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]
+    #     dropdown_data=[]
+    #     count_cols=[x for x in dff.columns if "counts" in x]
+    #     print(count_cols)
+    #     for i in range(dff.shape[0]):
+    #         print(i)
+    #         row={}
+    #         for a in count_cols:
+    #   #     'climate': {
+    #     #         'options': [
+    #     #             {'label': i, 'value': i}
+    #     #             for i in df['climate'].unique()
+    #     #         ]
+    #     #     },
+    #     #     'city': {
+    #     #          'options': [
+    #     #             {'label': i, 'value': i}
+    #     #             for i in df['city'].unique()
+    #     #         ]
+    #     #     }
+    #     # }45665445646          print(a)
+            #     option={a:{'options':[{'label':i, 'value':i},
+            #     {'label':dff.at[i,a], 'value':dff.at[i,a],"presentation":"markdown"}]}}
+            #     row.update(option)
+            # dropdown_data.append(row)
+        
         message = "Finished retrieving PubMed Abstract Co-Mentions!"
-        return (ammended_answers, ammended_columns, message)
+
+        return (ammended_answers, ammended_columns, hidden_columns, message)
     else:
         raise dash.exceptions.PreventUpdate
         
