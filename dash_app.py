@@ -161,7 +161,8 @@ starts = html.Div([
     dcc.Textarea(
         id='starts',
         value=
-'''Donepezil
+'''ADUCANUMAB
+Donepezil
 Galantamine
 Epicriptine
 Acetyl-L-carnitine
@@ -333,7 +334,7 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
                 
         html.Div([submit_button, term_map_button, load, load_2], style={'padding-bottom': '3em'}),
     
-        html.Div([html.Td(answer_table,style={'maxWidth':'70%',"vertical-align":"top"}),html.Td(subgraph_fig,style={"vertical-align":"top",'height':'100%'})]),
+        html.Div([html.Td(subgraph_fig,style={"vertical-align":"top",'height':'100%'}),html.Td(answer_table,style={'maxWidth':'70%',"vertical-align":"top"})]),
 
         html.Div([html.Td(protein_names_button), html.Td(triangulator_button),html.Td(load_4)]),
         
@@ -1133,5 +1134,5 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
  #############################################################    
 
 if __name__ == '__main__':
-    #app.run_server()
-    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
+    app.run_server()
+    #app.run_server(host='0.0.0.0', port=80,debug=True) #For production
