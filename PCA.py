@@ -43,6 +43,7 @@ def performPCA(df,positives,dimensions):
                                 y=f"PC2",
                                 color="outcome" if pos_length>0 else "Target",
                                 hover_data={"Target":True},
+                                title=f"Total Explained Variance:{float(pc1_var)+float(pc2_var)}",
                                 labels=dict(PC1=f"PC1 (Variance:{pc1_var})",
                                             PC2=f"PC2 (Variance:{pc2_var})",
                                             outcome="Target Class"))
@@ -63,6 +64,7 @@ def performPCA(df,positives,dimensions):
                                     z=f"PC3",
                                     color="outcome" if pos_length>0 else "Target",
                                     hover_data={"Target":True},
+                                    title=f"Total Explained Variance:{float(pc1_var)+float(pc2_var)+float(pc3_var)}",
                                     labels=dict(PC1=f"PC1 (Variance:{pc1_var})",
                                                 PC2=f"PC2 (Variance:{pc2_var})",
                                                 PC3=f"PC3 (Variance:{pc3_var})",

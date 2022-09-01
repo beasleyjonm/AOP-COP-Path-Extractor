@@ -173,8 +173,6 @@ Cadmium
 Aluminum
 Copper
 pesticide
-Ziprasidone
-Naltrexone
 ''',
         placeholder="Leave blank to include *any* start entities...",
         className='searchTerms'
@@ -892,13 +890,14 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     [State('dwpc-table', 'children'),
     State('pca-positives', 'value')])
 def VisualizePCA(n_clicks,dwpc_datatable,positive_rows):
-    positives=processInputText(positive_rows)
     if(n_clicks <= 0): return ""
+    if positive_rows is None:
+        positives=[]
+    else:
+        positives=processInputText(positive_rows)
+
     gk = pd.DataFrame(dwpc_datatable['props']['data'])
-    # positives=[]
-    # for i in positive_rows:
-    #     pos=f"{gk.iat[i,0]}-{gk.iat[i,1]}"
-    #     positives.append(pos)
+
     pca2comp=PCA.performPCA(gk,positives,2)
     pca3comp=PCA.performPCA(gk,positives,3)
     style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
@@ -917,7 +916,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         #Get protein names from HGNC
         dff = pd.DataFrame.from_dict(answer_datatable['props']['data'])
         gene_cols = [col for col in dff.columns if ":Gene" in col]
-        print(dff.columns)
+        #print(dff.columns)
         if len(gene_cols) == 0: return dff.to_dict('records'), [{"name": i, "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns], "No \"Gene\" column detected."
 
         genes = dict()
@@ -950,7 +949,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 
             loc = dff.columns.get_loc(col_x)
             dff.insert(loc+1, col_x+' protein names', proteins)
-            print(dff.columns)
+            #print(dff.columns)
 
         ammended_answers = dff.to_dict('records')
         ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in dff.columns]
@@ -959,8 +958,8 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
             message = f"Finished retrieving protein names!\nFailed on {fails.rstrip(', ')}."
         else:
             message = "Finished retrieving protein names!"
-
-        return ammended_answers, ammended_columns, message
+        hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]
+        return ammended_answers, ammended_columns, hidden_columns, message
     elif button_id == 'submit-triangulator-val' and triangulator_clicks:
         print(selected_columns)
         #Find number of co-mentioning abstracts from Pubmed for 2 or 3 terms.
@@ -1124,31 +1123,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         ammended_answers = dff.to_dict('records')
         ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable":True, "selectable": False, "presentation":"markdown"} if " link" in i else {"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
         hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]
-    #     dropdown_data=[]
-    #     count_cols=[x for x in dff.columns if "counts" in x]
-    #     print(count_cols)
-    #     for i in range(dff.shape[0]):
-    #         print(i)
-    #         row={}
-    #         for a in count_cols:
-    #   #     'climate': {
-    #     #         'options': [
-    #     #             {'label': i, 'value': i}
-    #     #             for i in df['climate'].unique()
-    #     #         ]
-    #     #     },
-    #     #     'city': {
-    #     #          'options': [
-    #     #             {'label': i, 'value': i}
-    #     #             for i in df['city'].unique()
-    #     #         ]
-    #     #     }
-    #     # }45665445646          print(a)
-            #     option={a:{'options':[{'label':i, 'value':i},
-            #     {'label':dff.at[i,a], 'value':dff.at[i,a],"presentation":"markdown"}]}}
-            #     row.update(option)
-            # dropdown_data.append(row)
-        
+
         message = "Finished retrieving PubMed Abstract Co-Mentions!"
 
         return (ammended_answers, ammended_columns, hidden_columns, message)
