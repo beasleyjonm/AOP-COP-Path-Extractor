@@ -923,7 +923,8 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         genes = dict()
         proteins = list()
         protname_df = pd.read_csv("AOP-COP-Path-Extractor\hgnc_complete_set.csv", encoding="utf-8")
-
+        print("Read HGNC protein names!")
+        
         for col in gene_cols:
             genes[col] = dff[col].tolist() 
         for col_x in genes:
@@ -937,7 +938,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
                     index = int(i[0])
                     protein = protname_df.at[index, 'name']
                     proteins.append(protein)
-                    #print(gene + " maps to " + protein)
+                    print(gene + " maps to " + protein)
 
                 except:
                     if gene == "Ins1":
