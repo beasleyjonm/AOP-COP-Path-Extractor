@@ -922,8 +922,8 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 
         genes = dict()
         proteins = list()
-        protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
-        #protname_df = pd.read_csv("AOP-COP-Path-Extractor\hgnc_complete_set.csv", encoding="utf-8")
+        #protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
+        protname_df = pd.read_csv("AOP-COP-Path-Extractor\hgnc_complete_set.csv", encoding="utf-8")
         print("Read HGNC protein names!")
         
         for col in gene_cols:
@@ -1141,5 +1141,5 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
  #############################################################    
 
 if __name__ == '__main__':
-    #app.run_server()
-    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
+    app.run_server()
+    #app.run_server(host='0.0.0.0', port=80,debug=True) #For production

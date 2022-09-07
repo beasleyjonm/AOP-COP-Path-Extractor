@@ -35,6 +35,7 @@ def VisualizeAnswerRow(df,selected_row):
     cols = df.columns
     node_cols = []
     edge_cols = []
+    count_cols = [x for x in cols if " counts" in x]
     for col in cols:
         if col.count('node')==1 and df.at[selected_row,col]!="?":
             if "protein names" not in col:
@@ -45,6 +46,7 @@ def VisualizeAnswerRow(df,selected_row):
     human_sort(edge_cols)
     print(node_cols)
     print(edge_cols)
+    print(count_cols)
     added_nodes = []
     added_edges = []
     for col in node_cols:
@@ -58,14 +60,16 @@ def VisualizeAnswerRow(df,selected_row):
         G.add_edge(added_nodes[i],added_nodes[i+1], type=added_edges[i].replace('biolink:',''))
     edge_labels = nx.get_edge_attributes(G,'type')
     fig = plt.figure(figsize = (5,8))
-    plt.gca().set_facecolor('blue') #Background color of the whole app
-    pos={}
+    #plt.gca().set_facecolor('blue') #Background color of the whole app
+    pos={added_nodes[0]:[0,0]}
     y=0
-    for n in added_nodes:
-        n_pos={n:[0,y]}
+    for n in range(len(added_edges)):
+        y+=(-1*len(added_edges[n]))
+        n_pos={added_nodes[n+1]:[0,y]}
         pos.update(n_pos)
-        y+=(-2)
-    nx.draw(G, pos, with_labels=True, node_size=2000, font_weight='bold')
+    nodesize=[300*len(x) for x in G.nodes()]
+
+    nx.draw(G, pos, with_labels=True, node_size=nodesize, font_weight='bold')
     # for p in pos:  # raise text positions
     #     t=list(pos[p])
     #     t[0]=t[0]+0.1
@@ -80,6 +84,11 @@ def VisualizeAnswerRow(df,selected_row):
     return "data:image/png;base64,{}".format(data)
 
 def VisualizePubmedCounts(df,selected_row):
+    cols = df.columns
+    node_cols = []
+    edge_cols = []
+    count_cols = [x for x in cols if " counts" in x]
+
     for col in cols:
         if col.count('node')==1 and df.at[selected_row,col]!="?" and "protein names" not in col:
             node_cols.append(col)
