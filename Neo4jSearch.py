@@ -1,5 +1,11 @@
 import pandas as pd
 import py2neo
+from matplotlib.pyplot import cm
+
+def get_cmap(n, name='hsv'):
+    '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
+    RGB color; the keyword argument name must be a standard mpl colormap name.'''
+    return cm.get_cmap(name, n)
 
 def processInputText(text):
     l1 = []
@@ -19,13 +25,20 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
         link = "bolt://neo4j.het.io"
     elif graph_db == "SCENT-KOP":
         link = "bolt://scentkop.apps.renci.org"
+    elif graph_db == "ComptoxAI":
+        link = "bolt://neo4j.comptox.ai:7687"
     G = py2neo.Graph(link)
     limit = str(limit_results)
     robokop_output = {}
     results = {}
     o=0
     frames=[]
-
+    KGNameIDProps = {
+            "ROBOKOP":["name","id"],
+            "SCENT-KOP":["name","id"],
+            "HetioNet":["name","identifier"],
+            "ComptoxAI":["commonName","xrefDTXSID"]
+        }
     for p in nodes:
         query = f"MATCH "
         k = len(nodes[p])
@@ -56,11 +69,11 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
             if "wildcard" in start_nodes and "wildcard" in end_nodes:
                 continue
             elif "wildcard" in start_nodes:
-                que = que + f"WHERE n{k-1}.name IN {str(end_nodes)} "
+                que = que + f"WHERE n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
             elif "wildcard" in end_nodes:
-                que = que + f"WHERE n{0}.name IN {str(start_nodes)} "
+                que = que + f"WHERE n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
             else:
-                que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else 'IN'} {str(start_nodes)} AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else 'IN'} {str(end_nodes)} "
+                que = que + f"WHERE n{0}.{KGNameIDProps[graph_db][0]} {'CONTAINS' if contains_starts==True else 'IN'} {str(start_nodes)} AND (n{k-1}.{KGNameIDProps[graph_db][0]}) {'CONTAINS' if contains_ends==True else 'IN'} {str(end_nodes)} "
             q = que
                             
         elif start_end_matching == True:
@@ -69,11 +82,11 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
                 if "wildcard" in start and "wildcard" in end:
                     que = que
                 elif "wildcard" in start:
-                    que = que + f"WHERE n{k-1}.name = \"{end}\" "
+                    que = que + f"WHERE n{k-1}.{KGNameIDProps[graph_db][0]} = \"{end}\" "
                 elif "wildcard" in end:
-                    que = que + f"WHERE n{0}.name = \"{start}\" "
+                    que = que + f"WHERE n{0}.{KGNameIDProps[graph_db][0]} = \"{start}\" "
                 else:
-                    que = que + f"WHERE n{0}.name {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.name) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
+                    que = que + f"WHERE n{0}.{KGNameIDProps[graph_db][0]} {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.{KGNameIDProps[graph_db][0]}) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
                 q = que
                 
         if graph_db == "ROBOKOP":
@@ -91,21 +104,21 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
             
             for z in range(k):
                 if z==0:
-                    q = q + f"n{z}.name, esnd_n{z}_r{z}, TYPE(r{z}), "
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z}, TYPE(r{z}), "
                 elif z>0 and z<(k-1):
-                    q = q + f"n{z}.name, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
                 else: 
-                    q = q + f"n{z}.name, esnd_n{z}_r{z-1} LIMIT {limit}"
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1} LIMIT {limit}"
 
         else:
             q = q + f"RETURN "
             for z in range(k):
                 if z==0:
-                    q = q + f"n{z}.name, TYPE(r{z}), "
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
                 elif z>0 and z<(k-1):
-                    q = q + f"n{z}.name, TYPE(r{z}), "
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
                 else: 
-                    q = q + f"n{z}.name LIMIT {limit}"
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} LIMIT {limit}"
 
         print(q+"\n")
 
@@ -133,6 +146,8 @@ def getNodeAndEdgeLabels(graph_db):
         link = "bolt://neo4j.het.io"
     elif graph_db == "SCENT-KOP":
         link = "bolt://scentkop.apps.renci.org"
+    elif graph_db == "ComptoxAI":
+        link = "bolt://neo4j.comptox.ai:7687"
     rk_nodes=[]
     rk_edges=[]
     try:
@@ -151,4 +166,7 @@ def getNodeAndEdgeLabels(graph_db):
         rk_edges.append(m[0])
     rk_nodes.sort()
     rk_edges.sort()
+    # cmap = get_cmap(len(rk_nodes))
+    # print(cmap)
+
     return (rk_nodes, rk_edges)

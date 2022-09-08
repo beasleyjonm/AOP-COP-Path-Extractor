@@ -39,7 +39,8 @@ kg_dropdown = dcc.Dropdown(id="kg-dropdown",
            options=[
            {'label':"ROBOKOP", 'value':"ROBOKOP"},
            {'label':"SCENT-KOP", 'value':"SCENT-KOP"},
-           {'label':"HetioNet", 'value':"HetioNet"}],
+           {'label':"HetioNet", 'value':"HetioNet"},
+           {'label':"ComptoxAI", 'value':"ComptoxAI"}],
            value="ROBOKOP",
            className='dropdownbox',
            clearable=False)
@@ -390,6 +391,9 @@ def UpdateNodeAndEdgeLabels(graph_db):
     elif graph_db == "SCENT-KOP":
         starter = "odorant"
         ender = "verbal_scent_descriptor"
+    elif graph_db == "ComptoxAI":
+        starter = "Chemical"
+        ender = "AdverseOutcome"
     rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
     rk_nodes=rk_nodes_and_edges[0]
     rk_edges=rk_nodes_and_edges[1]
@@ -680,6 +684,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
                         columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
                         sort_action="native",
+                        sort_mode="multi",
                         filter_action="native",
                         column_selectable="multi",
                         row_selectable="single",
@@ -743,17 +748,24 @@ def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_la
         link = "bolt://neo4j.het.io"
     elif graph_db == "SCENT-KOP":
         link = "bolt://scentkop.apps.renci.org"
+    elif graph_db == "ComptoxAI":
+        link = "bolt://neo4j.comptox.ai:7687"
     G = py2neo.Graph(link)
    # nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
     start_message = ""
     end_message = ""
     for term in starts:
         nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
-        a=len(nodes_output['node name'])
+        KGNameIDProps = {
+            "ROBOKOP":["name","id"],
+            "SCENT-KOP":["name","id"],
+            "HetioNet":["name","identifier"],
+            "ComptoxAI":["commonName","xrefDTXSID"]
+        }
         if graph_db == "ROBOKOP":
             query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
         else:
-            query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
+            query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS \"{term.lower()}\" RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}"
         matches = G.run(query)
         for m in matches:
             nodes_output["search term"].append(term)
