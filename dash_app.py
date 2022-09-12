@@ -13,6 +13,7 @@ import time
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
 from Neo4jSearch import getNodeAndEdgeLabels
+from Neo4jSearch import checkNodeNameID
 import VisualizePaths
 from VisualizePaths import VisualizeAnswerRow
 import io
@@ -683,8 +684,13 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
     answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
                         columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
+                        tooltip_data=[
+                            {
+                                column: {'value': str(value), 'type': 'markdown'}
+                                for column, value in row.items()
+                            } for row in answersdf.to_dict('records')
+                        ],
                         sort_action="native",
-                        sort_mode="multi",
                         filter_action="native",
                         column_selectable="multi",
                         row_selectable="single",
@@ -716,105 +722,14 @@ def submit_path_search(n_clicks,graph_db,start_node_text,
             {"margin-right":"1em",'display':'block'},
             {'display':'block', 'width':'5em'})
 
-@app.callback(
-    [Output('loading-2', 'children'),
-    Output('start-map-output', 'value'),
-    Output('start-map-div', 'style'),
-    Output('end-map-output', 'value'),
-    Output('end-map-div', 'style')],
+@app.callback([Output('loading-2', 'children'),Output('start-map-output', 'value'),Output('end-map-output', 'value'),Output('start-map-div', 'style'),Output('end-map-div', 'style')],
     Input('term-map-val', 'n_clicks'),
-    [
-    State('kg-dropdown', 'value'),
-    State('starts', 'value'),
-    State('ends','value'),
-    State("source-dropdown", 'value'), 
-    State("tail-dropdown", 'value')]
-    )
+    [State('kg-dropdown', 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value')])
 def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_label):
     if(n_clicks <= 0): return ""
-    starts = processInputText(start_terms)
-    ends = processInputText(end_terms)
-    if 'biolink' in start_label:
-        startLabel = f"`{start_label}`"
-    else:
-        startLabel = start_label
-    if 'biolink' in end_label:
-        endLabel = f"`{end_label}`"
-    else:
-        endLabel = end_label
-    if graph_db == "ROBOKOP":
-        link = "bolt://robokopkg.renci.org"
-    elif graph_db == "HetioNet":
-        link = "bolt://neo4j.het.io"
-    elif graph_db == "SCENT-KOP":
-        link = "bolt://scentkop.apps.renci.org"
-    elif graph_db == "ComptoxAI":
-        link = "bolt://neo4j.comptox.ai:7687"
-    G = py2neo.Graph(link)
-   # nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
-    start_message = ""
-    end_message = ""
-    for term in starts:
-        nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
-        KGNameIDProps = {
-            "ROBOKOP":["name","id"],
-            "SCENT-KOP":["name","id"],
-            "HetioNet":["name","identifier"],
-            "ComptoxAI":["commonName","xrefDTXSID"]
-        }
-        if graph_db == "ROBOKOP":
-            query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
-        else:
-            query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS \"{term.lower()}\" RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}"
-        matches = G.run(query)
-        for m in matches:
-            nodes_output["search term"].append(term)
-            nodes_output["node name"].append(m[0])
-            nodes_output["node id"].append(m[1])
-            try:
-                nodes_output["node degree"].append(m[2])
-            except:
-                continue
-        b=len(nodes_output['node name'])
-        if term in nodes_output["node name"]:
-            if graph_db == "ROBOKOP":
-                start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
-            else:
-                start_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
-        else:
-            if graph_db == "ROBOKOP":
-                start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"
-            else:
-                start_message+=f"'{term}' not in {graph_db} under '{start_label}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n"
-    for term in ends:
-        nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
-        a=len(nodes_output['node name'])
-        if graph_db == "ROBOKOP":
-            query = f"MATCH (n{':'+endLabel if endLabel != 'wildcard' else ''}) WHERE apoc.meta.type(n.name) = 'STRING' AND toLower(n.name) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.name, n.id, degree"
-        else:
-            query = f"MATCH (n{':'+endLabel if endLabel != 'wildcard' else ''}) WHERE toLower(n.name) CONTAINS \"{term.lower()}\" RETURN n.name, n.identifier"
-        matches = G.run(query)
-        for m in matches:
-            nodes_output["search term"].append(term)
-            nodes_output["node name"].append(m[0])
-            nodes_output["node id"].append(m[1])
-            try:
-                nodes_output["node degree"].append(m[2])
-            except:
-                continue
-        b=len(nodes_output['node name'])
-        if term in nodes_output["node name"]:
-            if graph_db == "ROBOKOP":
-                end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}, Degree: {nodes_output['node degree'][0]}\n"
-            else:
-                end_message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n"
-        else:
-            if graph_db == "ROBOKOP":
-                end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree'])])}\n"             
-            else:
-                end_message+=f"'{term}' not in {graph_db} under '{end_label}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n"
-    
-    return ([f"{graph_db} Term Mapping Complete!"],start_message,{"display":'block'},end_message,{"display":'block'})
+    nodeCheck = checkNodeNameID(graph_db, start_terms, end_terms, start_label, end_label)
+    style = {"display":'block'}
+    return ([f"{graph_db} Term Mapping Complete!"],nodeCheck[0],nodeCheck[1],style,style)
 
 @app.callback(
     Output('subgraph-fig','src'),
