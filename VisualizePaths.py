@@ -59,15 +59,15 @@ def VisualizeAnswerRow(df,selected_row):
     for i in range(len(added_edges)):
         G.add_edge(added_nodes[i],added_nodes[i+1], type=added_edges[i].replace('biolink:',''))
     edge_labels = nx.get_edge_attributes(G,'type')
-    fig = plt.figure(figsize = (5,8))
+    fig = plt.figure(figsize = (8,3))
     #plt.gca().set_facecolor('blue') #Background color of the whole app
     
     pos={}  #To set nodes evenly spaced
-    y=0
+    x=0
     for n in added_nodes:
-        n_pos={n:[0,y]}
+        n_pos={n:[x,0]}
         pos.update(n_pos)
-        y+=(-1*len(added_nodes))
+        x+=(-1*len(added_nodes))
 
     # pos={added_nodes[0]:[0,0]}  #To set node distance based on edge label
     # y=0
