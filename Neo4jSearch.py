@@ -112,52 +112,64 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
                 else:
                     q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
             
-            # for z in range(k):
-            #     if z==0:
-            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z}, TYPE(r{z}), "
-            #     elif z>0 and z<(k-1):
-            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
-            #     else: 
-            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1} LIMIT {limit}"
+            for z in range(k):
+                if z==0:
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z}, TYPE(r{z}), "
+                elif z>0 and z<(k-1):
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
+                else: 
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1} LIMIT {limit}"
 
-            q = q + f"* LIMIT {limit}" #Working on returning ALL results.
+            #q = q + f"* LIMIT {limit}" #Working on returning ALL results.
 
         else:
-            # q = q + f"RETURN "
-            # for z in range(k):
-            #     if z==0:
-            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
-            #     elif z>0 and z<(k-1):
-            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
-            #     else: 
-            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]} LIMIT {limit}"
+            q = q + f"RETURN "
+            for z in range(k):
+                if z==0:
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
+                elif z>0 and z<(k-1):
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
+                else: 
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} LIMIT {limit}"
 
-            q = q + f"RETURN * LIMIT {limit}" #Working on returning ALL results.
+            # q = q + f"RETURN * LIMIT {limit}" #Working on returning ALL results.
             
 
         print(q+"\n")
+        matches = G.run(q)#.data()
+        # keys = list(matches[0].keys())
+        # print(matches[0].keys())
+        # l=0
+        # for m in matches:
+        #     for i in robokop_output:
+        #         key=keys[l]
+        #         print(key)
+        #         print(list(m.keys()))
+        #         robokop_output[i].append(m[l])
+        #         l+=1
+        #     for j in robokop_output:
+        #         m[l].split(", ")
+        #         robokop_output[j].append(m[l][0])
+        #         l += 1
+        # print("Done")
+        # return "Nothing to see here!"
 
-        matches = G.run(q).data()
+        for m in matches:
+            l = 0
+            for j in robokop_output:
+                #print(m[l])
+                robokop_output[j].append(m[l])
+                l += 1
 
-        print("Done")
-        return "Nothing to see here!"
-
-    #     for m in matches:
-    #         l = 0
-    #         for j in robokop_output:
-    #             print(m[l])
-    #             robokop_output[j].append(m[l])
-    #             l += 1
-
-    #     robokop_output.update({"path":p})
-    #     frames.append(pd.DataFrame(data=robokop_output))
+        robokop_output.update({"path":p})
+        frames.append(pd.DataFrame(data=robokop_output))
         
-    # result = pd.concat(frames, ignore_index=True, sort=False)
-    # result.fillna("?",inplace=True)
-    # path_column = result.pop('path')
-    # result.insert(0, 'path', path_column)
+    result = pd.concat(frames, ignore_index=True, sort=False)
+    result.fillna("?",inplace=True)
+    path_column = result.pop('path')
+    result.insert(0, 'path', path_column)
 
-    # return result
+    return result
 
 def getNodeAndEdgeLabels(graph_db):
     if graph_db == "ROBOKOP":
