@@ -5,6 +5,7 @@ from dash import dcc
 from dash import html
 from dash import Dash, dash_table
 import dash_daq as daq
+import dash_bootstrap_components as dbc
 import numpy as np
 from dash.dependencies import Output, Input, State
 import requests as rq
@@ -231,7 +232,7 @@ ends = html.Div([
 submit_button = html.Button('Submit', id='submit-val', n_clicks=0, style={"margin-right": "1em"})
 protein_names_button = html.Button('Get Protein Names', id='submit-protein-names', n_clicks=0, style={"display":'None'})
 triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
-dwpc_button = html.Button('Submit DWPC', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
+dwpc_button = html.Button('Compute Degree-Weighted Path Counts', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
 dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         value=0,
                         type='number',
@@ -239,7 +240,7 @@ dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         max=1,
                         step=0.01,
                         placeholder="Weight",
-                        style={'display':'None','vertical-align':'middle'})
+                        style={'display':'None'})
 
 all_node_edge_divs = []
 for j in range(10):
@@ -253,7 +254,7 @@ for j in range(10):
     
 #Create tables for results
 answer_table = html.Div(id='answer-table', style={'color': colors['text']})
-protein_names_answers = html.Div(id='protein-names-answers', style={'color': colors['text']})
+#protein_names_answers = html.Div(id='protein-names-answers', style={'color': colors['text']})
 dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
 #create elements for PCA figures
@@ -316,8 +317,8 @@ row1 = html.Tr([
     html.Td(ends),
     html.Div(submit_button),
     html.Td(load),
-    answer_table,
-    protein_names_answers
+    answer_table
+    #protein_names_answers
 ])
 row0 = html.Tr(selector)
 tbody = html.Tbody([row0, row1])
@@ -371,12 +372,44 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
         #         html.Tr(children='A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND)).')],
         #         style={'margin-left':'0'}),
                 
-        html.Div([submit_button, term_map_button, load, load_2], style={'padding-bottom': '3em'}),
+        html.Div([submit_button, term_map_button, load, load_2,
+            dbc.Tooltip(
+            "Check Start and End node names for corresponding terms in the knowledge graph. \
+            Copy and paste suggested names if your supplied name is not found.",
+            target="term-map-val",
+            style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
+            placement="bottom",
+            delay={"show":200,"hide":300}
+        )], style={'padding-bottom': '3em'}),
 
         html.Div(html.Tr(
             [
-                html.Td([protein_names_button,triangulator_button,load_4,dwpc_button, dwpc_weight, load_3],style={"vertical-align":"middle"}), 
-                html.Td(answer_table,style={"vertical-align":"top"})
+                html.Td([protein_names_button,triangulator_button,load_4,dwpc_button, dwpc_weight, load_3,
+                dbc.Tooltip( #For protein-names button
+                    "If \"Gene\" nodes are present, you may retrieve HGNC-Approved protein names for all genes.",
+                    target="submit-protein-names",
+                    style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
+                    placement="bottom",
+                    delay={"show":200,"hide":300}),
+                dbc.Tooltip( #For PubMed comentions button.
+                    "Queries often return numerous answer paths. To prioritize paths for deeper exploration, select any 2 or 3 node columns and click \"Get PubMed Abstract Co-Mentions\". \
+                    This appends columns to the answer table which show the number of PubMed abstracts co-mentioning any term pairs or term triplets from your answer table. \
+                    Links to these PubMed abstracts can be found in hidden columns under \"Toggle Columns\".",
+                    target="submit-triangulator-val",
+                    style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
+                    placement="bottom",
+                    delay={"show":200,"hide":300}),
+                dbc.Tooltip( #For degree-weight path counts button.
+                    "You can compute an embedding for each Start and End node pair based on the answer table. Each row in the answer table can be represented as a metapath, \
+                    a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
+                    Degree-weighting factor can be adjusted below (default=0, no degree weighting). (Himmelstein,D.S & Baranzini,S.E., 2015)",
+                    target="submit-dwpc-val",
+                    style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
+                    placement="bottom",
+                    delay={"show":200,"hide":300})
+            ], style={"vertical-align":"middle"}), 
+
+            html.Td(answer_table,style={"vertical-align":"top"})
             ]
         ),
             style={'minWidth':'60%', 'width':'60%', 'maxWidth':'60%'}),
@@ -748,7 +781,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
             {"margin-right":"1em",'display':'block'},
             {"margin-right":"1em",'display':'block'},
             {"margin-right":"1em",'display':'block'},
-            {'display':'block', 'width':'5em'})
+            {"margin":"1em",'display':'block', 'width':'69%'})
 
 @app.callback([Output('loading-2', 'children'),Output('start-map-output', 'value'),Output('end-map-output', 'value'),Output('start-map-div', 'style'),Output('end-map-div', 'style')],
     Input('term-map-val', 'n_clicks'),
@@ -853,7 +886,10 @@ def VisualizePCA(n_clicks,dwpc_datatable,selected_rows,positive_rows):
     # if positive_rows is None:
     #     positives=[]
     # else:
-    positives=processInputText(positive_rows)
+    if positive_rows != None:
+        positives=processInputText(positive_rows)
+    else:
+        positives=[]
 
     gk = pd.DataFrame(dwpc_datatable['props']['data'])
     if selected_rows != None:
