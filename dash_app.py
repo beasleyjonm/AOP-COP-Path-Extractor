@@ -853,7 +853,10 @@ def VisualizePCA(n_clicks,dwpc_datatable,selected_rows,positive_rows):
     # if positive_rows is None:
     #     positives=[]
     # else:
-    positives=processInputText(positive_rows)
+    if positive_rows != None:
+        positives=processInputText(positive_rows)
+    else:
+        positives=[]
 
     gk = pd.DataFrame(dwpc_datatable['props']['data'])
     if selected_rows != None:
