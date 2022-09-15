@@ -19,6 +19,7 @@ import VisualizePaths
 from VisualizePaths import VisualizeAnswerRow
 from PubMedSearch import PubMedCoMentions
 from HGNCProteinNames import GetProteinNames
+from RandomForest import RandomForestClassifierTrain
 import io
 import base64
 import PCA
@@ -254,6 +255,7 @@ for j in range(10):
     
 #Create tables for results
 answer_table = html.Div(id='answer-table', style={'color': colors['text']})
+
 #protein_names_answers = html.Div(id='protein-names-answers', style={'color': colors['text']})
 dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
@@ -269,8 +271,13 @@ pca_button = html.Button('Perform Principal Component Analysis', id='submit-pca-
 pca_fig_2comp = dcc.Graph(id='pca-fig-2comp',className="scatterplot",style={'display':'None'})
 pca_fig_3comp = dcc.Graph(id='pca-fig-3comp',className="scatterplot",style={'display':'None'})
 
+randomforest_button = html.Button('Train Random Forest Classifier', id='submit-rf-train', n_clicks=0, style={"display":'None'})
+
 #Create elements to visualize subgraphs
 subgraph_fig = html.Img(id='subgraph-fig', style={'height':'100%'})
+
+#Display Random Forest Cross Validation Stats
+rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'height':'100%'})
 
 #Create selector element to specify graph search queries.
 selector = []
@@ -310,6 +317,13 @@ load_4 =  dcc.Loading(
     type="default",
     color=colors['text'],
     children=html.Div(id="loading-output-4")
+)
+
+load_5 =  dcc.Loading(
+    id="loading-5",
+    type="default",
+    color=colors['text'],
+    children=html.Div(id="loading-output-5")
 )
 
 row1 = html.Tr([
@@ -402,7 +416,7 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
                 dbc.Tooltip( #For degree-weight path counts button.
                     "You can compute an embedding for each Start and End node pair based on the answer table. Each row in the answer table can be represented as a metapath, \
                     a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
-                    Degree-weighting factor can be adjusted below (default=0, no degree weighting). (Himmelstein,D.S & Baranzini,S.E., 2015)",
+                    A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND). (Himmelstein,D.S & Baranzini,S.E., 2015)",
                     target="submit-dwpc-val",
                     style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
                     placement="bottom",
@@ -428,11 +442,22 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
     
         html.Div(dwpc_table, style={'width': '120em','padding-bottom':'1em'}),
 
-        html.Div([html.Td(pca_positives),html.Td(pca_button)], style={"vertical-align":"middle"}),
+        html.Div([html.Td(pca_positives),html.Td([pca_button, randomforest_button]),load_5
+        # dbc.Tooltip( #For degree-weight path counts button.
+        #     "You can compute an embedding for each Start and End node pair based on the answer table. Each row in the answer table can be represented as a metapath, \
+        #     a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
+        #     Degree-weighting factor can be adjusted below (default=0, no degree weighting). (Himmelstein,D.S & Baranzini,S.E., 2015)",
+        #     target="submit-dwpc-val",
+        #     style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
+        #     placement="bottom",
+        #     delay={"show":200,"hide":300})
+        ], style={"vertical-align":"middle"}),
         
         html.Div(pca_fig_2comp),
 
         html.Div(pca_fig_3comp),
+
+        html.Div(rf_5FCV_fig)
     ])
 
 selected_nodes = []
@@ -806,6 +831,7 @@ def ShowAnswerSubgraph(selected_row,answer_datatable):
     [Output('loading-3','children'),
     Output('dwpc-table', 'children'),
     Output('submit-pca-vis', 'style'),
+    Output('submit-rf-train', 'style'),
     Output('pos-search-box', 'style')],
     Input('submit-dwpc-val', 'n_clicks'),
     [State('answer-table', 'children'),
@@ -869,38 +895,116 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
                         export_format="csv")
 
     style={'display':'block'}
-    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,style,style
+    return ["Finished Calculating Degree-Weighted Path Counts!"],dwpc_table,style,style,style
     
 @app.callback([Output('pca-fig-2comp', 'figure'),
     Output('pca-fig-3comp', 'figure'),
     Output('pca-fig-2comp', 'style'),
-    Output('pca-fig-3comp', 'style')],
-    Input('submit-pca-vis', 'n_clicks'),
+    Output('pca-fig-3comp', 'style'),
+    Output('rf-5FCV-fig','src'),
+    Output('loading-5','children')],
+    [Input('submit-pca-vis', 'n_clicks'), 
+    Input('submit-rf-train', 'n_clicks')],
     [State('dwpc-table', 'children'),
     State('dwpc', 'selected_rows'),
     State('pca-positives', 'value')])
-def VisualizePCA(n_clicks,dwpc_datatable,selected_rows,positive_rows):
-    if(n_clicks <= 0): return ""
-    print(selected_rows)
-    print(type(selected_rows))
-    # if positive_rows is None:
-    #     positives=[]
-    # else:
-    if positive_rows != None:
-        positives=processInputText(positive_rows)
-    else:
-        positives=[]
+def MachineLearning(pca_clicks,rf_clicks,dwpc_datatable,selected_rows,positive_rows):
+    button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    print(button_id)
+    if button_id == 'submit-pca-vis' and pca_clicks:
+    #if(n_clicks <= 0): return ""
+        print(selected_rows)
+        print(type(selected_rows))
+        # if positive_rows is None:
+        #     positives=[]
+        # else:
+        if positive_rows != None:
+            positives=processInputText(positive_rows)
+        else:
+            positives=[]
 
-    gk = pd.DataFrame(dwpc_datatable['props']['data'])
-    if selected_rows != None:
-        for row in selected_rows:
-            positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
-    pca2comp=PCA.performPCA(gk,positives,2)
-    pca3comp=PCA.performPCA(gk,positives,3)
-    style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
-    style3comp={'display':f"{'None' if pca3comp=='' else 'block'}"}
+        gk = pd.DataFrame(dwpc_datatable['props']['data'])
+        if selected_rows != None:
+            for row in selected_rows:
+                positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
+        pca2comp=PCA.performPCA(gk,positives,2)
+        pca3comp=PCA.performPCA(gk,positives,3)
+        style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
+        style3comp={'display':f"{'None' if pca3comp=='' else 'block'}"}
+        message = "Completed PCA Visualization"
+        return [pca2comp,pca3comp,style2comp,style3comp,"",message]
+        
+    elif button_id == 'submit-rf-train' and rf_clicks:
+    #if(n_clicks <= 0): return ""
+        print(selected_rows)
+        print(type(selected_rows))
+        if positive_rows != None:
+            positives=processInputText(positive_rows)
+        else:
+            positives=[]
 
-    return [pca2comp,pca3comp,style2comp,style3comp]
+        gk = pd.DataFrame(dwpc_datatable['props']['data'])
+        if selected_rows != None:
+            for row in selected_rows:
+                positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
+        train_stats=RandomForestClassifierTrain(gk, positives, balance_data=False)
+        styleOn={'display':'block'}
+        styleOff={'display':'None'}
+        stats_fig=train_stats[0]
+        message = train_stats[1]
+        return ["","",styleOff,styleOff,stats_fig,message]
+
+# @app.callback([Output('pca-fig-2comp', 'figure'),
+#     Output('pca-fig-3comp', 'figure'),
+#     Output('pca-fig-2comp', 'style'),
+#     Output('pca-fig-3comp', 'style')],
+#     Input('submit-pca-vis', 'n_clicks'),
+#     [State('dwpc-table', 'children'),
+#     State('dwpc', 'selected_rows'),
+#     State('pca-positives', 'value')])
+# def MachineLearning(pca_clicks,rf_clicks,dwpc_datatable,selected_rows,positive_rows):
+#     button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+#     print(button_id)
+#     if button_id == 'submit-pca-vis' and pca_clicks:
+#     #if(n_clicks <= 0): return ""
+#         print(selected_rows)
+#         print(type(selected_rows))
+#         # if positive_rows is None:
+#         #     positives=[]
+#         # else:
+#         if positive_rows != None:
+#             positives=processInputText(positive_rows)
+#         else:
+#             positives=[]
+
+#         gk = pd.DataFrame(dwpc_datatable['props']['data'])
+#         if selected_rows != None:
+#             for row in selected_rows:
+#                 positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
+#         RandomForestClassifierTrain(gk, positives, balance_data=False)
+#         pca2comp=PCA.performPCA(gk,positives,2)
+#         pca3comp=PCA.performPCA(gk,positives,3)
+#         style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
+#         style3comp={'display':f"{'None' if pca3comp=='' else 'block'}"}
+
+#         return [pca2comp,pca3comp,style2comp,style3comp]
+
+#     elif button_id == 'submit-rf-train' and rf_clicks:
+#     #if(n_clicks <= 0): return ""
+#         print(selected_rows)
+#         print(type(selected_rows))
+#         if positive_rows != None:
+#             positives=processInputText(positive_rows)
+#         else:
+#             positives=[]
+
+#         gk = pd.DataFrame(dwpc_datatable['props']['data'])
+#         if selected_rows != None:
+#             for row in selected_rows:
+#                 positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
+#         RandomForestClassifierTrain(gk, positives, balance_data=False)
+
+#         return ["pca2comp",pca3comp,style2comp,style3comp]
 
 @app.callback(
     [Output('answers', 'data'), Output('answers', 'columns'), Output('answers','hidden_columns'),Output('loading-4', 'children')],

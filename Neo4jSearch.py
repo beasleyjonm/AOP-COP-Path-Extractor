@@ -1,6 +1,11 @@
+#from socket import timeout
 import pandas as pd
 import py2neo
+import neo4j
+from neo4j import unit_of_work
 from matplotlib.pyplot import cm
+
+
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
@@ -14,7 +19,12 @@ def processInputText(text):
         if a != "":
             l1.append(a.strip())
     return l1
-    
+
+@unit_of_work(timeout=1.0)
+def run_query(tx,q):
+    result = tx.run(q)
+    return result
+
 KGNameIDProps = {
             "ROBOKOP":["name","id"],
             "SCENT-KOP":["name","id"],
@@ -26,7 +36,7 @@ KGNameIDProps = {
 #Measured and it IS faster than Version 1.
 def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
     if graph_db == "ROBOKOP":
-        link = "bolt://robokopkg.renci.org"
+        link = "neo4j://robokopkg.renci.org"
     elif graph_db == "HetioNet":
         link = "bolt://neo4j.het.io"
     elif graph_db == "SCENT-KOP":
@@ -34,7 +44,8 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
     elif graph_db == "ComptoxAI":
         link = "bolt://neo4j.comptox.ai:7687"
     try:
-        G = py2neo.Graph(link)
+        #G = py2neo.Graph(link)
+        G = neo4j.GraphDatabase.driver(link)
     except:
         result=['No Results: Connection Broken']
         return (result)
@@ -136,7 +147,22 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
             
 
         print(q+"\n")
-        matches = G.run(q)#.data()
+        # timeout = 1   # [seconds]
+
+        # timeout_start = time.time()
+        # t=0
+
+        # while time.time() < timeout_start + timeout:
+        #     time.sleep(0.1)
+        #     session = G.session()#.data()
+        #     matches = run_query(session,q)
+        #     t+=1
+        #     if t > 0:
+        #         break
+
+        session = G.session()#.data()
+        matches = run_query(session,q)
+        print(type(matches))
         # keys = list(matches[0].keys())
         # print(matches[0].keys())
         # l=0
