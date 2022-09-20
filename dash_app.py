@@ -1172,4 +1172,4 @@ def UploadSettings(contents,filename):
 
 if __name__ == '__main__':
     #app.run_server()
-    app.run_server(host='0.0.0.0', port=80,debug=False) #For production
+    app.run_server(host='0.0.0.0', port=80,debug=True) #For production
