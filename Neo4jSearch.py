@@ -2,10 +2,8 @@
 import pandas as pd
 import py2neo
 import neo4j
-from neo4j import unit_of_work
+#from neo4j import unit_of_work
 from matplotlib.pyplot import cm
-
-
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
@@ -20,7 +18,7 @@ def processInputText(text):
             l1.append(a.strip())
     return l1
 
-@unit_of_work(timeout=1.0)
+#@unit_of_work(timeout=1.0)
 def run_query(tx,q):
     result = tx.run(q)
     return result
@@ -34,7 +32,7 @@ KGNameIDProps = {
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
 #Measured and it IS faster than Version 1.
-def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
+def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,timeout_ms,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
     if graph_db == "ROBOKOP":
         link = "neo4j://robokopkg.renci.org"
     elif graph_db == "HetioNet":
@@ -58,7 +56,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
             "ROBOKOP":["name","id"],
             "SCENT-KOP":["name","id"],
             "HetioNet":["name","identifier"],
-            "ComptoxAI":["commonName","xrefDTXSID"]
+            "ComptoxAI":["commonName","<id>"]
         }
     for p in nodes:
         query = f"MATCH "
@@ -123,14 +121,21 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
                 else:
                     q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
             
+            # for z in range(k):
+            #     if z==0:
+            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z}, TYPE(r{z}), "
+            #     elif z>0 and z<(k-1):
+            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
+            #     else: 
+            #         q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1} LIMIT {limit}"
+
             for z in range(k):
                 if z==0:
-                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z}, TYPE(r{z}), "
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
                 elif z>0 and z<(k-1):
-                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}), "
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
                 else: 
-                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, esnd_n{z}_r{z-1} LIMIT {limit}"
-
+                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
             #q = q + f"* LIMIT {limit}" #Working on returning ALL results.
 
         else:
@@ -147,6 +152,17 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
             
 
         print(q+"\n")
+
+        if graph_db == "ROBOKOP" or "ComptoxAI":
+            q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
+            for z in range(k):
+                if z==0:
+                    q = q + f"value.n{z}, value.esnd_n{z}_r{z}, value.r{z}, "
+                elif z>0 and z<(k-1):
+                    q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}, "
+                else: 
+                    q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}"
+        print(q+"\n")
         # timeout = 1   # [seconds]
 
         # timeout_start = time.time()
@@ -159,9 +175,9 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,limit_results,contain
         #     t+=1
         #     if t > 0:
         #         break
-
         session = G.session()#.data()
         matches = run_query(session,q)
+        #matches = run_query(session,f"CALL apoc.cypher.runTimeboxed(\"{q}\", null, 20000)")
         print(type(matches))
         # keys = list(matches[0].keys())
         # print(matches[0].keys())
@@ -258,7 +274,7 @@ def checkNodeNameID(graph_db, start_terms, end_terms, start_label, end_label):
             "ROBOKOP":["name","id"],
             "SCENT-KOP":["name","id"],
             "HetioNet":["name","identifier"],
-            "ComptoxAI":["commonName","xrefDTXSID"]
+            "ComptoxAI":["commonName","<id>"]
         }
     start_message = ""
     end_message = ""

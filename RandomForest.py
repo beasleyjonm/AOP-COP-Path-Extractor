@@ -30,7 +30,7 @@ def RandomForestClassifierTrain(df, positives, balance_data=False):
     pos_length=len(positives)
     target_length=df.shape[0]
     cols=df.columns
-    df['Target'] = df[[cols[0], cols[1]]].apply("-".join, axis=1)
+    df['Target'] = df[[cols[0], cols[1]]].apply(":".join, axis=1)
     if pos_length>0:
         df['outcome'] = [1 if x in positives  else 0 for x in df['Target']]
     features = [x for x in cols if "|" in x]# Separating out the features
@@ -57,7 +57,7 @@ def RandomForestClassifierTrain(df, positives, balance_data=False):
 
     ##%%time
     # Number of trees in random forest
-    n_estimators = [100, 250, 500, 750, 1000]
+    n_estimators = [100]#, 250, 500, 750, 1000]
     max_features = ['auto', 'sqrt']
     criterion = ['gini', 'entropy']
     if balance_data == True:

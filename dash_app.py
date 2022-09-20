@@ -229,7 +229,7 @@ ends = html.Div([
         className='searchTerms'
     )])
 
-#Create buttons to submit ROBOKOP search, get protein names, and calculate DWPC.
+#Create buttons to submit ROBOKOP search, get protein names, save settings, and calculate DWPC.
 submit_button = html.Button('Submit', id='submit-val', n_clicks=0, style={"margin-right": "1em"})
 protein_names_button = html.Button('Get Protein Names', id='submit-protein-names', n_clicks=0, style={"display":'None'})
 triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
@@ -242,7 +242,25 @@ dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         step=0.01,
                         placeholder="Weight",
                         style={'display':'None'})
-
+download_settings = html.Div([
+                        html.Button("Save Settings", id="btn_csv"),
+                        dcc.Input(id="settings_name",type='text',placeholder="Settings Filename"),
+                        dcc.Download(id="download-dataframe-csv"),])
+upload_settings = html.Div(
+                        dcc.Upload(
+                        id='upload-data',
+                        children=html.Div([
+                        'Drag and Drop or ',
+                        html.A('Select'), " Settings File"]),
+                        style={
+                            'width': '20%',
+                            'height': '60px',
+                            'lineHeight': '60px',
+                            'borderWidth': '1px',
+                            'borderStyle': 'dashed',
+                            'borderRadius': '5px',
+                            'textAlign': 'center',
+                            'margin': '10px'}))
 all_node_edge_divs = []
 for j in range(10):
     node_edge_div = html.Div([html.Td(all_k_drops[j][0], style={'width': '20em'}),
@@ -261,7 +279,7 @@ dwpc_table = html.Div(id='dwpc-table', style={'color': colors['text']})
 
 #create elements for PCA figures
 pca_positives = html.Div([
-html.Div(html.B(children='Type Positive Start and End Terms, separated by "-":')),
+html.Div(html.B(children='Type Positive Start and End Terms, separated by ":"')),
     dcc.Textarea(id='pca-positives',
         placeholder="Leave blank to perform unlabelled PCA...",
         className='searchTerms')],
@@ -277,7 +295,7 @@ randomforest_button = html.Button('Train Random Forest Classifier', id='submit-r
 subgraph_fig = html.Img(id='subgraph-fig', style={'height':'100%'})
 
 #Display Random Forest Cross Validation Stats
-rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'height':'100%'})
+rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'width':'30%','height':'30%'})
 
 #Create selector element to specify graph search queries.
 selector = []
@@ -386,7 +404,7 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
         #         html.Tr(children='A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND)).')],
         #         style={'margin-left':'0'}),
                 
-        html.Div([submit_button, term_map_button, load, load_2,
+        html.Div([submit_button, term_map_button, download_settings, upload_settings, load, load_2,
             dbc.Tooltip(
             "Check Start and End node names for corresponding terms in the knowledge graph. \
             Copy and paste suggested names if your supplied name is not found.",
@@ -414,7 +432,7 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
                     placement="bottom",
                     delay={"show":200,"hide":300}),
                 dbc.Tooltip( #For degree-weight path counts button.
-                    "You can compute an embedding for each Start and End node pair based on the answer table. Each row in the answer table can be represented as a metapath, \
+                    "Compute an embedding for each Start and End node pair based on the answer table. Each pair can be represented as a set of metapaths, \
                     a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
                     A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND). (Himmelstein,D.S & Baranzini,S.E., 2015)",
                     target="submit-dwpc-val",
@@ -503,7 +521,7 @@ def UpdateNodeAndEdgeLabels(graph_db):
         ender = "verbal_scent_descriptor"
     elif graph_db == "ComptoxAI":
         starter = "Chemical"
-        ender = "AdverseOutcome"
+        ender = "Disease"
     rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
     rk_nodes=rk_nodes_and_edges[0]
     rk_edges=rk_nodes_and_edges[1]
@@ -540,7 +558,8 @@ def UpdateNodeAndEdgeLabels(graph_db):
 
 @app.callback([Output("selector-1",'style'),Output("selector-2",'style'),Output("selector-3",'style'),Output("selector-4",'style'),Output("selector-5",'style'),
     Output("selector-6",'style'),Output("selector-7",'style'),Output("selector-8",'style'),Output("selector-9",'style'),Output("selector-10",'style')], 
-    Input('pattern-select', 'value'))
+    Input('pattern-select', 'value'),
+    prevent_initial_call=True)
 def hide_elements_p(p):
     pattern_1 = {'display':'block'} if p>=1 else {'display':'None'}
     pattern_2 = {'display':'block'} if p>=2 else {'display':'None'}
@@ -764,8 +783,11 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
             i+=1
         else:
             break
-    ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,10000000)
-    answersdf = ans.drop_duplicates()
+    ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,timeout_ms=60000,limit_results=10000000)
+    try:
+        answersdf = ans.drop_duplicates()
+    except:
+        return f"{graph_db} Search Timed Out! Try forming shorter queries or specifying Start & End nodes."
     answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
                         columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
                         hidden_columns=[i for i in answersdf.columns if "esnd" in i],
@@ -926,7 +948,7 @@ def MachineLearning(pca_clicks,rf_clicks,dwpc_datatable,selected_rows,positive_r
         gk = pd.DataFrame(dwpc_datatable['props']['data'])
         if selected_rows != None:
             for row in selected_rows:
-                positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
+                positives.append(f"{gk.iat[row,0]}:{gk.iat[row,1]}")
         pca2comp=PCA.performPCA(gk,positives,2)
         pca3comp=PCA.performPCA(gk,positives,3)
         style2comp={'display':'block'}#,'width':'1000px','height':'1000px'}
@@ -946,7 +968,7 @@ def MachineLearning(pca_clicks,rf_clicks,dwpc_datatable,selected_rows,positive_r
         gk = pd.DataFrame(dwpc_datatable['props']['data'])
         if selected_rows != None:
             for row in selected_rows:
-                positives.append(f"{gk.iat[row,0]}-{gk.iat[row,1]}")
+                positives.append(f"{gk.iat[row,0]}:{gk.iat[row,1]}")
         train_stats=RandomForestClassifierTrain(gk, positives, balance_data=False)
         styleOn={'display':'block'}
         styleOff={'display':'None'}
@@ -1038,7 +1060,114 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         return (ammended_answers, ammended_columns, hidden_columns, message)
     else:
         raise dash.exceptions.PreventUpdate
-        
+    
+@app.callback(
+    Output("download-dataframe-csv", "data"),
+    Input("btn_csv", "n_clicks"),
+    [
+    State('starts','value'),
+    State('ends','value'),
+    State('pos-search-box','value'),
+    # State('selector-1','style'),
+    # State('selector-1','children'),
+    # State('selector-2','style'),
+    # State('selector-2','children'),
+    # State('selector-3','style'),
+    # State('selector-3','children'),
+    # State('selector-4','style'),
+    # State('selector-4','children'),
+    # State('selector-5','style'),
+    # State('selector-5','children'),
+    # State('selector-6','style'),
+    # State('selector-6','children'),
+    # State('selector-7','style'),
+    # State('selector-7','children'),
+    # State('selector-8','style'),
+    # State('selector-8','children'),
+    # State('selector-9','style'),
+    # State('selector-9','children'),
+    # State('selector-10','style'),
+    # State('selector-10','children'),
+    State('kg-dropdown','value'),
+    State('edge-checkbox','value'),
+    State('settings_name','value')
+
+    ],
+    prevent_initial_call=True)
+def DownloadSettings(n_clicks, start_node_text, end_node_text, positive_rows,
+    #s1s,s1c,s2s,s2c,s3s,s3c,s4s,s4c,s5s,s5c,s6s,s6c,s7s,s7c,s8s,s8c,s9s,s9c,s10s,s10c,
+    kgdrop,edgecheck,fname):
+    # button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    # print(button_id)
+    # if button_id == 'btn_csv' and n_clicks:
+    if(n_clicks <= 0): return ""
+
+    if start_node_text != None:
+        start_nodes = processInputText(start_node_text)
+    else:
+        start_nodes = []
+
+    if end_node_text != None:
+        end_nodes = processInputText(end_node_text)
+    else:
+        end_nodes = []
+
+    if positive_rows != None:
+        positives = processInputText(positive_rows)
+    else:
+        positives = []
+
+    #selector = [s1s,s1c,s2s,s2c,s3s,s3c,s4s,s4c,s5s,s5c,s6s,s6c,s7s,s7c,s8s,s8c,s9s,s9c,s10s,s10c]
+    
+    
+    d = dict(Starts=np.array(start_nodes), Ends=np.array(end_nodes), Positives=np.array(positives), KnowledgeGraph=np.array(kgdrop))#,Edges=np.array(edgecheck)) #Selector=np.array(selector))
+    df = pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in d.items() ]))
+    return dcc.send_data_frame(df.to_csv, f"{fname}.csv")
+
+@app.callback([
+    Output('starts','value'),
+    Output('ends','value'),
+    Output('pos-search-box','value'),
+    Output('kg-dropdown','value')
+    #Output('edge-checkbox','value')
+    ],
+    Input('upload-data', 'contents'),
+    State('upload-data', 'filename'),
+    prevent_initial_call=True)
+def UploadSettings(contents,filename):
+    content_type, content_string = contents.split(',')
+    decoded = base64.b64decode(content_string)
+    try:
+        if 'csv' in filename:
+            # Assume that the user uploaded a CSV file
+            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')),index_col=False)
+        elif 'xls' in filename:
+            # Assume that the user uploaded an excel file
+            df = pd.read_excel(io.BytesIO(decoded),index_col=False)
+    except Exception as e:
+        print(e)
+        return ""
+    starts=''''''
+    for n in df['Starts'].dropna().to_list():
+        print(n)
+        starts = starts+n+"\n"
+    # for n in range(len(starts)):
+    #     starts[n].replace(",","\n")
+    ends=''''''
+    for n in df['Ends'].dropna().to_list():
+        ends = ends+n+"\n"
+    # for n in range(len(ends)):
+    #     ends[n].replace(",","\n")
+    positives=''''''
+    for n in df['Positives'].dropna().to_list():
+        positives = positives+n+"\n"
+    # for n in range(len(positives)):
+    #     positives[n].replace(",","\n")
+    kgdrop=df['KnowledgeGraph'][0]
+    #edgecheck=df['Edges'][0]
+
+    return starts,ends,positives,kgdrop#,edgecheck
+
  #############################################################    
 
 if __name__ == '__main__':
