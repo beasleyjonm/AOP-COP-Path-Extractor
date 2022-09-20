@@ -148,7 +148,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
                         else:
                             cnt = three_term_dict[onetwothreekey]
                         comention_counts_1_2_3.append(cnt)
-                        comention_counts_1_2_3_link.append(f"{str(cnt)} <a href='https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}' target='_blank' rel='noopener noreferrer'>[Link]</a>")
+                        comention_counts_1_2_3_link.append(f"{str(cnt)} <a href=\"https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}\" target=\"_blank\" rel=\"noopener noreferrer\">[Link]</a>")
             
         if f"{Term1}-{Term2} counts" or f"{Term2}-{Term1} counts"not in dff.columns:
             dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
