@@ -47,5 +47,7 @@ def GetProteinNames(dff):
         message = f"Finished retrieving protein names!\nFailed on {fails.rstrip(', ')}."
     else:
         message = "Finished retrieving protein names!"
-    hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]
+
+    hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]+[i for i in dff.columns if "MetaData" in i]
     return ammended_answers, ammended_columns, hidden_columns, message
+
