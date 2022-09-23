@@ -9,7 +9,7 @@ def GetProteinNames(dff):
     genes = dict()
     proteins = list()
     #protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
-    protname_df = pd.read_csv("AOP-COP-Path-Extractor\hgnc_complete_set.csv", encoding="utf-8")
+    protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
     print("Read HGNC protein names!")
 
     for col in gene_cols:
@@ -47,5 +47,7 @@ def GetProteinNames(dff):
         message = f"Finished retrieving protein names!\nFailed on {fails.rstrip(', ')}."
     else:
         message = "Finished retrieving protein names!"
+
     hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]+[i for i in dff.columns if "MetaData" in i]
     return ammended_answers, ammended_columns, hidden_columns, message
+
