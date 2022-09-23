@@ -18,15 +18,15 @@ button {
 } */
 
 .searchTerms {
-  height: 140px;
-  width: 300px;
+  height: 10em;
+  width: 15em;
   font-style: italic;
   font-size: 16px;
 }
 
 textarea {
-  height: 140px;
-  width: 300px;
+  height: 10em;
+  width: 15em;
   font-style: italic;
   font-size: 16px;
 }
@@ -35,14 +35,21 @@ h1 {
   margin-top: 0.5em;
   margin-bottom: 0.5em;
   font-weight: 900;
+  text-align: center;
 }
 
 .dropdownbox {
   margin-top: 0.5em;
   margin-bottom: 0.5em;
+  width: 15em;
+  font-size: 20px;
 }
 
 .scatterplot {
   margin-top: 0.5em;
   margin-bottom: 0.5em;
+}
+
+.dash-table-tooltip {
+  background-color:violet;
 }

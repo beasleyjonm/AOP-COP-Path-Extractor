@@ -20,7 +20,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
     if number not in [2,3]:
         ammended_answers = dff.to_dict('records')
         ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable":True, "selectable": False, "presentation":"markdown"} if " link" in i else {"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
-        hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]
+        hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]+[i for i in dff.columns if "MetaData" in i]
         message = "Please select 2 or 3 node columns for PubMed search."
         return (ammended_answers, ammended_columns, hidden_columns, message)
         
@@ -173,7 +173,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
 
     ammended_answers = dff.to_dict('records')
     ammended_columns = [{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable":True, "selectable": False, "presentation":"markdown"} if " link" in i else {"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i and " counts" not in i else False]} for i in dff.columns]
-    hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]
+    hidden_columns=[i for i in dff.columns if " link" in i]+[i for i in dff.columns if "esnd" in i]+[i for i in dff.columns if "MetaData" in i]
 
     message = "Finished retrieving PubMed Abstract Co-Mentions!"
 

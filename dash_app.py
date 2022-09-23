@@ -35,53 +35,44 @@ colors = {
     'text': '#000000'
 }
 
-rk_nodes_and_edges=getNodeAndEdgeLabels('ROBOKOP')
-rk_nodes=rk_nodes_and_edges[0]
-rk_edges=rk_nodes_and_edges[1]
+#rk_nodes_and_edges=getNodeAndEdgeLabels('ROBOKOP')
+# rk_nodes=rk_nodes_and_edges[0]
+# rk_edges=rk_nodes_and_edges[1]
 
-#Define components used:
-kg_dropdown = dcc.Dropdown(id="kg-dropdown",
-           options=[
-           {'label':"ROBOKOP", 'value':"ROBOKOP"},
-           {'label':"SCENT-KOP", 'value':"SCENT-KOP"},
-           {'label':"HetioNet", 'value':"HetioNet"},
-           {'label':"ComptoxAI", 'value':"ComptoxAI"}],
-           value="ROBOKOP",
-           className='dropdownbox',
-           clearable=False)
+#Define dcc.Dropdown components used:
+kg_dropdown = dcc.Dropdown(
+                    id="kg-dropdown",
+                    options=[
+                    {'label':"ROBOKOP", 'value':"ROBOKOP"},
+                    {'label':"SCENT-KOP", 'value':"SCENT-KOP"},
+                    {'label':"HetioNet", 'value':"HetioNet"},
+                    {'label':"ComptoxAI", 'value':"ComptoxAI"}],
+                    value="ROBOKOP",
+                    className='dropdownbox',
+                    clearable=False)
 
-source_dropdown = dcc.Dropdown(id="source-dropdown",
-           options=[{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
-           value="biolink:ChemicalEntity",
-           clearable=False)
+source_dropdown = dcc.Dropdown(
+                    id="source-dropdown",
+                    options=[],#{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
+                    value="biolink:ChemicalEntity",
+                    className='dropdownbox',
+                    placeholder='Select Node Type...',
+                    clearable=False)
 
-tail_dropdown = dcc.Dropdown(id="tail-dropdown",
-           options=[{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
-           value="biolink:DiseaseOrPhenotypicFeature",
-           clearable=False)
+tail_dropdown = dcc.Dropdown(
+                    id="tail-dropdown",
+                    options=[],#{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
+                    value="biolink:DiseaseOrPhenotypicFeature",
+                    className='dropdownbox',
+                    placeholder='Select Node Type...',
+                    clearable=False)
 
-node_drop = dcc.Dropdown(id="node-dropdown",
-    options=[{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
-   multi=False
+node_drop = dcc.Dropdown(
+                    id="node-dropdown",
+                    options=[],#{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes],
+                    className='dropdownbox',
+                    multi=False
 )
-
-#Adds a button to check whether names entered into Start and End are matched with search terms in ROBOKOP 
-#and a markdown component to display terms that dont match
-term_map_button = html.Button('Check for Terms in Knowledge Graph', id='term-map-val', n_clicks=0)
-
-start_map_output = html.Div([
-    html.Div(html.B(children='Starting Terms Mapped to Knowledge Graph:\n')),
-    dcc.Textarea(
-        id='start-map-output',
-        style={'width': '20%', 'height': 140, 'width': 300})],
-    id='start-map-div',style={'display': 'None'})
-
-end_map_output = html.Div([
-    html.Div(html.B(children='Ending Terms Mapped to Knowledge Graph:\n')),
-    dcc.Textarea(
-        id='end-map-output',
-        style={'width': '20%', 'height': 140, 'width': 300})],
-    id='end-map-div',style={'display': 'None'})
 
 #Adds a numeric selector which makes or removes new query patterns to add to selector list.
 pattern_select = daq.NumericInput(id="pattern-select",min=1,max=10,value=1,label="Number of Query Patterns") 
@@ -90,7 +81,12 @@ pattern_select = daq.NumericInput(id="pattern-select",min=1,max=10,value=1,label
 #Default query pattern names are P1, P2, ... Pn.
 pattern_name_boxes=[]
 for i in range(1,11):
-    pattern_name = dcc.Input(id="pattern-name-{}".format(i), type="text", placeholder='P{}'.format(i), value='P{}'.format(i))
+    pattern_name = dcc.Input(
+        id="pattern-name-{}".format(i),
+        type="text",
+        placeholder='P{}'.format(i),
+        value='P{}'.format(i),
+        style={'width':'7em'})
     pattern_name_boxes.append(pattern_name)
 
 #Make the selection button that determines globally whether or not edges can be specificied.
@@ -108,12 +104,14 @@ for i in range(1,11):
             dcc.Dropdown(
             id="edge-dropdown-{}".format(str(i)+"-"+str(k)),
                 options=[
-                    {'label':x, 'value':x} for x in rk_edges 
+                    #{'label':x, 'value':x} for x in rk_edges 
                 ],
+            placeholder='Select Edge Type...',
             multi=False
             )],
             id="edge-div-{}".format(str(i)+"-"+str(k)),
-            style={'display':'block', 'width': '20%'}
+            className='dropdownbox',
+            style={'display':'None'}
         )
         drop = html.Div([
             html.B(children='Level k-%i:'%k),
@@ -121,14 +119,16 @@ for i in range(1,11):
             dcc.Dropdown(
             id="node-dropdown-{}".format(str(i)+"-"+str(k)),
                 options=[
-                    {'label':x, 'value':x} for x in rk_nodes 
+                    #{'label':x, 'value':x} for x in rk_nodes 
                 ],
+            placeholder='Select Node Type...',
             multi=False
             )
 
             ],
             id="node-div-{}".format(str(i)+"-"+str(k)),
-            style={'display':('block' if k<3 else 'None'), 'width': '20%'}
+            className='dropdownbox',
+            style={'display':('block' if k<3 else 'None')}
             )
         k_drop.append(drop)
     all_k_drops.append(k_drop)
@@ -136,18 +136,21 @@ print(len(all_k_drops))
 edge_drop = dcc.Dropdown(
     id="edge-dropdown",
    options=[
-       {'label':x, 'value':x} for x in rk_edges 
+       #{'label':x, 'value':x} for x in rk_edges 
    ],
    multi=False,
+   className='dropdownbox',
    style={'display':'None'}
 )
 
 tail_edge = dcc.Dropdown(
     id="tail-edge",
    options=[
-       {'label':x, 'value':x} for x in rk_edges 
+       #{'label':x, 'value':x} for x in rk_edges 
    ],
    multi=False,
+   className='dropdownbox',
+   placeholder='Select Edge Type...',
    style={'display':'None'}
 )
 
@@ -230,7 +233,7 @@ ends = html.Div([
     )])
 
 #Create buttons to submit ROBOKOP search, get protein names, save settings, and calculate DWPC.
-submit_button = html.Button('Submit', id='submit-val', n_clicks=0, style={"margin-right": "1em"})
+submit_button = html.Button('Submit', id='submit-val', n_clicks=0)#, style={"margin-right": "1em"})
 protein_names_button = html.Button('Get Protein Names', id='submit-protein-names', n_clicks=0, style={"display":'None'})
 triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
 dwpc_button = html.Button('Compute Degree-Weighted Path Counts', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
@@ -242,33 +245,63 @@ dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         step=0.01,
                         placeholder="Weight",
                         style={'display':'None'})
-download_settings = html.Div([
-                        html.Button("Save Settings", id="btn_csv"),
-                        dcc.Input(id="settings_name",type='text',placeholder="Settings Filename"),
-                        dcc.Download(id="download-dataframe-csv"),])
-upload_settings = html.Div(
+
+#Adds a button to check whether names entered into Start and End are matched with search terms in ROBOKOP 
+#and a markdown component to display terms that dont match
+start_term_map_button = html.Button('Check for Terms in Knowledge Graph', id='start-term-map-val', n_clicks=0)
+end_term_map_button = html.Button('Check for Terms in Knowledge Graph', id='end-term-map-val', n_clicks=0)
+
+start_map_output = html.Div([
+    html.Div(html.B(children='Starting Terms Mapped to Knowledge Graph:\n')),
+    dcc.Textarea(
+        id='start-map-output',
+        className='searchTerms',
+    )],
+    id='start-map-div',style={'display': 'None'})
+
+end_map_output = html.Div([
+    html.Div(html.B(children='Ending Terms Mapped to Knowledge Graph:\n')),
+    dcc.Textarea(
+        id='end-map-output',
+        className='searchTerms',
+    )],
+    id='end-map-div',style={'display': 'None'})
+
+# download_settings = html.Div([
+#                         html.Button("Save Settings", id="btn_csv"),
+#                         dcc.Input(id="settings_name",type='text',placeholder="Settings Filename"),
+#                         dcc.Download(id="download-dataframe-csv")])
+save_settings = html.Div([
+                        html.Div([
+                            html.Button("Save Settings", id="btn_csv"),
+                            dcc.Input(id="settings_name",type='text',placeholder="Settings Filename"),
+                            dcc.Download(id="download-dataframe-csv")]),
                         dcc.Upload(
-                        id='upload-data',
-                        children=html.Div([
-                        'Drag and Drop or ',
-                        html.A('Select'), " Settings File"]),
-                        style={
-                            'width': '20%',
-                            'height': '60px',
-                            'lineHeight': '60px',
-                            'borderWidth': '1px',
-                            'borderStyle': 'dashed',
-                            'borderRadius': '5px',
-                            'textAlign': 'center',
-                            'margin': '10px'}))
+                            id='upload-data',
+                            children=html.Div([
+                            'Drag and Drop or ',
+                            html.A('Select'), " Settings File"]),
+                            style={
+                                'width': '100%',
+                                'height': '60px',
+                                'lineHeight': '60px',
+                                'borderWidth': '3px',
+                                'borderStyle': 'dashed',
+                                'borderRadius': '5px',
+                                'textAlign': 'center',
+                                'margin': '10px'})   
+                    ],
+                        style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'})
 all_node_edge_divs = []
 for j in range(10):
-    node_edge_div = html.Div([html.Td(all_k_drops[j][0], style={'width': '20em'}),
-        html.Td(all_k_drops[j][1], style={'width': '20em'}),
-        html.Td(all_k_drops[j][2],style={'width': '20em'}),
-        html.Td(all_k_drops[j][3],style={'width': '20em'}),
-        html.Td(all_k_drops[j][4],style={'width': '20em'})],
-        style={'width': '100em'},id="node-edge-div-%i" % (j+1))
+    node_edge_div = html.Div([
+        html.Td(all_k_drops[j][0],style={'width': '0em'}),
+        html.Td(all_k_drops[j][1],style={'width': '0em'}),
+        html.Td(all_k_drops[j][2],style={'width': '0em'}),
+        html.Td(all_k_drops[j][3],style={'width': '0em'}),
+        html.Td(all_k_drops[j][4],style={'width': '0em'})],
+        #style={'width': '100em'},
+        id="node-edge-div-%i" % (j+1))
     all_node_edge_divs.append(node_edge_div)
     
 #Create tables for results
@@ -300,12 +333,17 @@ rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'width':'30%','height':'30%'})
 #Create selector element to specify graph search queries.
 selector = []
 for j in range(10):
-    select = html.Div(id='selector-%i' % (j+1), style={'display':('None' if j != 0 else 'block')}, children=[
-        html.Td(children=[html.Td(style={'text-align':'center'},children=html.B(children='Query Pattern Name:')),pattern_name_boxes[j]]),                              
-        html.Td(children=[html.Td(style={'text-align':'center'},children=html.B(children='K Value:')),all_k_selects[j]]),
-        html.Td(children=[html.Td(style={'text-align':'center'},children=html.B(children='')),html.B(children='==>',style={'vertical-align':'bottom'})]),      
-        html.Td(children=[all_node_edge_divs[j]])
-        ])
+    select = html.Div(
+        id='selector-%i' % (j+1),
+        style={'display':('None' if j != 0 else 'block')},
+        children=[
+            html.Div(children=[
+                html.Td(children=[html.Tr(children='Pattern Name:'),pattern_name_boxes[j]], style={'padding-right':'1em','vertical-align':'top'}),
+                html.Td(children=[html.Tr(children='Length:'),all_k_selects[j]], style={'vertical-align':'top'})],
+                style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),   
+            html.Td(children=[all_node_edge_divs[j]],
+                style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})
+            ])
     
     selector.append(select)
 
@@ -356,37 +394,7 @@ row0 = html.Tr(selector)
 tbody = html.Tbody([row0, row1])
 table = html.Table(tbody, style={'color': colors['text']})
 
-app.layout = html.Div(style={'margin':'2%','background-color': colors['background'], 'color': colors['text']}, children=[
-
-        html.Div(html.Tr(html.B(children='Welcome to ExEmPLAR (Extracting, Exploring and Embedding Pathways Leading to Actionable Research)!')),
-            style={'padding-top':'1em','padding-bottom':'1em','font-size':'40px'}), 
-        
-        html.Div([html.B(children='To begin:'),
-            html.Tr(children='(1) Select a biomedical knowledge graph source.'),
-            html.H1(children='Knowledge Graph:'),kg_dropdown],
-            style={'width': '20em'}), 
-
-            html.Div(style={'padding-bottom':'3em','vertical-align':'top'}, children=[
-                html.Tr(children='(2) Choose category of Starting and Ending nodes for pathway.'),
-                html.Td(children=[html.H1(children='Start Node:'),source_dropdown],
-                    style={'width': '20em'}),
-                html.Td(children=[html.H1(children='Tail Node:'),tail_edge,tail_dropdown],
-                    style={'width': '20em'}),
-                html.Td(children=[pattern_select]),
-                html.Td(edge_checkbox, style={'vertical-align':'bottom'})]),
-
-            html.Tr(children='(3) Build a series of explanatory intermediates node and/or edge types between Start and End.'),
-
-            html.Div(children=selector, style={'padding-bottom': '3em','padding-top': '1em'}),
-
-            html.Tr(children='(4) Type names of specific Start and End entities of interest.'),
-
-            html.Div([html.Td(starts),
-                    html.Td(ends),
-                    html.Td(start_map_output),html.Td(end_map_output)], 
-                    style={'padding-top': '1em'}),
-        
-        # html.Td([html.Tr(html.B(children='To begin:')),
+# html.Td([html.Tr(html.B(children='To begin:')),
         #         html.Tr(children='(1) Select a biomedical knowledge graph source.'),
         #         html.Tr(children='(2) Choose category of Starting and Ending nodes for pathway.'),
         #         html.Tr(children='(3) Build a series of explanatory intermediates node and/or edge types between Start and End.'),
@@ -403,8 +411,59 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
         #         html.Tr(children='To compute DWPC, change the "Weight" value then click "Submit DWPC".'),
         #         html.Tr(children='A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND)).')],
         #         style={'margin-left':'0'}),
+
+app.layout = html.Div(style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center','margin':'2%','background-color': colors['background'], 'color': colors['text']}, 
+    children=[
+
+        html.H1(children=['Welcome to ExEmPLAR!',html.Br(),'(Extracting, Exploring and Embedding Pathways Leading to Actionable Research)'],
+            style={'padding-top':'1em','padding-bottom':'1em','background-color':'whitesmoke','border-style':'outset','width':'100%'}),
+
+        html.Div([
+            html.Tr(children=['(1) Select a biomedical knowledge graph source.']),
+            html.H1(children='Knowledge Graph:'),
+            kg_dropdown],
+            style={'padding-bottom':'1em','width':'20em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}), 
+
+            html.Div(style={'padding-bottom':'3em','vertical-align':'top'},
+                children=[
+                    html.Div(children=[
+                            html.Td(children=[pattern_select]),
+                            html.Td(edge_checkbox, style={'vertical-align':'bottom'})],
+                            style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
+                    html.Div(children=['(2) Build a series of explanatory intermediates node and/or edge types between Start and End nodes.'],
+                        style={'padding-top':'1em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
+                    html.Td(children=[
+                        html.H1(children='Start Node:'),
+                        source_dropdown,
+                        starts,
+                        start_map_output,
+                        start_term_map_button],
+                        style={'width':'15em'}),
+                    html.Td(children=[
+                        html.Div(children=selector, style={'padding': '1em'})
+                    ]),
+                    html.Td(children=[
+                        html.H1(children='End Node:'),
+                        tail_edge,
+                        tail_dropdown,
+                        ends,
+                        end_map_output,
+                        end_term_map_button],
+                        style={'width':'15em'})
+                ]),
+
+            # html.Tr(children='(3) Build a series of explanatory intermediates node and/or edge types between Start and End.'),
+
+            # html.Div(children=selector, style={'padding-bottom': '3em','padding-top': '1em'}),
+
+            #html.Tr(children='(4) Type names of specific Start and End entities of interest.'),
+
+            # html.Div([html.Td(starts),
+            #         html.Td(ends),
+            #         html.Td(start_map_output),html.Td(end_map_output)], 
+            #         style={'padding-top': '1em'}),
                 
-        html.Div([submit_button, term_map_button, download_settings, upload_settings, load, load_2,
+        html.Div([submit_button, save_settings, load_2, load,
             dbc.Tooltip(
             "Check Start and End node names for corresponding terms in the knowledge graph. \
             Copy and paste suggested names if your supplied name is not found.",
@@ -412,11 +471,10 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
             style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
             placement="bottom",
             delay={"show":200,"hide":300}
-        )], style={'padding-bottom': '3em'}),
+        )], style={'padding':'2em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center', 'padding-bottom': '1em','background-color':'whitesmoke','border-style':'outset'}),
 
-        html.Div(html.Tr(
-            [
-                html.Td([protein_names_button,triangulator_button,load_4,dwpc_button, dwpc_weight, load_3,
+        html.Div([#html.Tr([
+            html.Tr([protein_names_button,triangulator_button,load_4,#dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For protein-names button
                     "If \"Gene\" nodes are present, you may retrieve HGNC-Approved protein names for all genes.",
                     target="submit-protein-names",
@@ -431,20 +489,23 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
                     style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
                     placement="bottom",
                     delay={"show":200,"hide":300}),
-                dbc.Tooltip( #For degree-weight path counts button.
-                    "Compute an embedding for each Start and End node pair based on the answer table. Each pair can be represented as a set of metapaths, \
-                    a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
-                    A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND). (Himmelstein,D.S & Baranzini,S.E., 2015)",
-                    target="submit-dwpc-val",
-                    style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
-                    placement="bottom",
-                    delay={"show":200,"hide":300})
-            ], style={"vertical-align":"middle"}), 
+            ],
+                    style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}), 
 
-            html.Td(answer_table,style={"vertical-align":"top"})
-            ]
-        ),
-            style={'minWidth':'60%', 'width':'60%', 'maxWidth':'60%'}),
+            html.Td(answer_table,style={"vertical-align":"top"}),
+
+            html.Tr([dwpc_button, dwpc_weight, load_3,
+                dbc.Tooltip( #For degree-weight path counts button.
+                        "Compute an embedding for each Start and End node pair based on the answer table. Each pair can be represented as a set of metapaths, \
+                        a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
+                        A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND). (Himmelstein,D.S & Baranzini,S.E., 2015)",
+                        target="submit-dwpc-val",
+                        style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
+                        placement="bottom",
+                        delay={"show":200,"hide":300})],
+                style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'})],
+
+            style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
 
         html.Div(html.Tr(subgraph_fig,style={"vertical-align":"top",'height':'100%'})),
 
@@ -458,9 +519,9 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
         
         #html.Div([html.Td(dwpc_button),html.Td(dwpc_weight),html.Td(load_3)],style={'padding-bottom': '3em'}),
     
-        html.Div(dwpc_table, style={'width': '120em','padding-bottom':'1em'}),
+        html.Div(dwpc_table, style={'padding-bottom':'1em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),#style={'width': '120em','padding-bottom':'1em'}),
 
-        html.Div([html.Td(pca_positives),html.Td([pca_button, randomforest_button]),load_5
+        html.Div([html.Td(pca_positives),html.Td([pca_button, randomforest_button],style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),load_5
         # dbc.Tooltip( #For degree-weight path counts button.
         #     "You can compute an embedding for each Start and End node pair based on the answer table. Each row in the answer table can be represented as a metapath, \
         #     a pathway from Start to End following a particular sequence of node and edge types. A degree-weighted path count (DWPC) is then computed for each metapath for each Start and End pair. \
@@ -469,13 +530,13 @@ app.layout = html.Div(style={'margin':'2%','background-color': colors['backgroun
         #     style={"background-color":"white", "border-style":"solid", "border-color": "black", "width":"10%"},
         #     placement="bottom",
         #     delay={"show":200,"hide":300})
-        ], style={"vertical-align":"middle"}),
+        ], style={'padding-bottom':'1em','display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
         
         html.Div(pca_fig_2comp),
 
         html.Div(pca_fig_3comp),
 
-        html.Div(rf_5FCV_fig)
+        html.Div(rf_5FCV_fig,style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})
     ])
 
 selected_nodes = []
@@ -527,7 +588,7 @@ def UpdateNodeAndEdgeLabels(graph_db):
     rk_edges=rk_nodes_and_edges[1]
     node_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes]
     edge_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_edges]
-    print(node_options)
+
     return (starter, node_options,ender,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
@@ -576,7 +637,8 @@ def hide_elements_p(p):
 
 @app.callback([Output("node-div-1-1",'style'),Output("node-div-1-2",'style'),Output("node-div-1-3",'style'),Output("node-div-1-4",'style'),Output("node-div-1-5",'style'),
     Output("edge-div-1-1",'style'),Output("edge-div-1-2",'style'),Output("edge-div-1-3",'style'),Output("edge-div-1-4",'style'),Output("edge-div-1-5",'style')], 
-    [Input("k-select-1", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-1", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k1(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -585,7 +647,8 @@ def hide_elements_k1(k,show_edge):
 
 @app.callback([Output("node-div-2-1",'style'),Output("node-div-2-2",'style'),Output("node-div-2-3",'style'),Output("node-div-2-4",'style'),Output("node-div-2-5",'style'),
     Output("edge-div-2-1",'style'),Output("edge-div-2-2",'style'),Output("edge-div-2-3",'style'),Output("edge-div-2-4",'style'),Output("edge-div-2-5",'style')], 
-    [Input("k-select-2", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-2", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k2(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -594,7 +657,8 @@ def hide_elements_k2(k,show_edge):
 
 @app.callback([Output("node-div-3-1",'style'),Output("node-div-3-2",'style'),Output("node-div-3-3",'style'),Output("node-div-3-4",'style'),Output("node-div-3-5",'style'),
     Output("edge-div-3-1",'style'),Output("edge-div-3-2",'style'),Output("edge-div-3-3",'style'),Output("edge-div-3-4",'style'),Output("edge-div-3-5",'style')], 
-    [Input("k-select-3", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-3", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k3(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -603,7 +667,8 @@ def hide_elements_k3(k,show_edge):
 
 @app.callback([Output("node-div-4-1",'style'),Output("node-div-4-2",'style'),Output("node-div-4-3",'style'),Output("node-div-4-4",'style'),Output("node-div-4-5",'style'),
     Output("edge-div-4-1",'style'),Output("edge-div-4-2",'style'),Output("edge-div-4-3",'style'),Output("edge-div-4-4",'style'),Output("edge-div-4-5",'style')], 
-    [Input("k-select-4", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-4", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k4(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -612,7 +677,8 @@ def hide_elements_k4(k,show_edge):
 
 @app.callback([Output("node-div-5-1",'style'),Output("node-div-5-2",'style'),Output("node-div-5-3",'style'),Output("node-div-5-4",'style'),Output("node-div-5-5",'style'),
     Output("edge-div-5-1",'style'),Output("edge-div-5-2",'style'),Output("edge-div-5-3",'style'),Output("edge-div-5-4",'style'),Output("edge-div-5-5",'style')], 
-    [Input("k-select-5", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-5", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k5(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -621,7 +687,8 @@ def hide_elements_k5(k,show_edge):
 
 @app.callback([Output("node-div-6-1",'style'),Output("node-div-6-2",'style'),Output("node-div-6-3",'style'),Output("node-div-6-4",'style'),Output("node-div-6-5",'style'),
     Output("edge-div-6-1",'style'),Output("edge-div-6-2",'style'),Output("edge-div-6-3",'style'),Output("edge-div-6-4",'style'),Output("edge-div-6-5",'style')], 
-    [Input("k-select-6", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-6", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k6(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -630,7 +697,8 @@ def hide_elements_k6(k,show_edge):
 
 @app.callback([Output("node-div-7-1",'style'),Output("node-div-7-2",'style'),Output("node-div-7-3",'style'),Output("node-div-7-4",'style'),Output("node-div-7-5",'style'),
     Output("edge-div-7-1",'style'),Output("edge-div-7-2",'style'),Output("edge-div-7-3",'style'),Output("edge-div-7-4",'style'),Output("edge-div-7-5",'style')], 
-    [Input("k-select-7", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-7", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k7(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -639,7 +707,8 @@ def hide_elements_k7(k,show_edge):
 
 @app.callback([Output("node-div-8-1",'style'),Output("node-div-8-2",'style'),Output("node-div-8-3",'style'),Output("node-div-8-4",'style'),Output("node-div-8-5",'style'),
     Output("edge-div-8-1",'style'),Output("edge-div-8-2",'style'),Output("edge-div-8-3",'style'),Output("edge-div-8-4",'style'),Output("edge-div-8-5",'style')], 
-    [Input("k-select-8", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-8", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k8(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -648,7 +717,8 @@ def hide_elements_k8(k,show_edge):
 
 @app.callback([Output("node-div-9-1",'style'),Output("node-div-9-2",'style'),Output("node-div-9-3",'style'),Output("node-div-9-4",'style'),Output("node-div-9-5",'style'),
     Output("edge-div-9-1",'style'),Output("edge-div-9-2",'style'),Output("edge-div-9-3",'style'),Output("edge-div-9-4",'style'),Output("edge-div-9-5",'style')], 
-    [Input("k-select-9", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-9", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k9(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -657,7 +727,8 @@ def hide_elements_k9(k,show_edge):
 
 @app.callback([Output("node-div-10-1",'style'),Output("node-div-10-2",'style'),Output("node-div-10-3",'style'),Output("node-div-10-4",'style'),Output("node-div-10-5",'style'),
     Output("edge-div-10-1",'style'),Output("edge-div-10-2",'style'),Output("edge-div-10-3",'style'),Output("edge-div-10-4",'style'),Output("edge-div-10-5",'style')], 
-    [Input("k-select-10", 'value'),Input("edge-checkbox", 'value')])
+    [Input("k-select-10", 'value'),Input("edge-checkbox", 'value')],
+    prevent_initial_call=True)
 def hide_elements_k10(k,show_edge):
     show_edge = checkToBool(show_edge)
     node_style_1 = {'display':'block'} if k>=1 else {'display':'None'};node_style_2 = {'display':'block'} if k>=2 else {'display':'None'};node_style_3 = {'display':'block'} if k>=3 else {'display':'None'};node_style_4 = {'display':'block'} if k>=4 else {'display':'None'};node_style_5 = {'display':'block'} if k>=5 else {'display':'None'}
@@ -666,7 +737,8 @@ def hide_elements_k10(k,show_edge):
 
 @app.callback(
     Output("tail-edge", 'style'),
-    Input("edge-checkbox", 'value')
+    Input("edge-checkbox", 'value'),
+    prevent_initial_call=True
 )
 def hide_elements_edges(show_edge):
     show_edge = checkToBool(show_edge)
@@ -709,7 +781,8 @@ def processInputText(text):
     State('k-select-1', 'value'),State('k-select-2', 'value'),State('k-select-3', 'value'),State('k-select-4', 'value'),State('k-select-5', 'value'),
     State('k-select-6', 'value'),State('k-select-7', 'value'),State('k-select-8', 'value'),State('k-select-9', 'value'),State('k-select-10', 'value'),
     State('pattern-name-1', 'value'),State('pattern-name-2', 'value'),State('pattern-name-3', 'value'),State('pattern-name-4', 'value'),State('pattern-name-5', 'value'),
-    State('pattern-name-6', 'value'),State('pattern-name-7', 'value'),State('pattern-name-8', 'value'),State('pattern-name-9', 'value'),State('pattern-name-10', 'value')])
+    State('pattern-name-6', 'value'),State('pattern-name-7', 'value'),State('pattern-name-8', 'value'),State('pattern-name-9', 'value'),State('pattern-name-10', 'value')],
+    prevent_initial_call=True)
 def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edges,show_edges, pattern_select,
         k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes,k1_1_edges,k1_2_edges,k1_3_edges,k1_4_edges,k1_5_edges,
         k2_1_nodes,k2_2_nodes,k2_3_nodes,k2_4_nodes,k2_5_nodes,k2_1_edges,k2_2_edges,k2_3_edges,k2_4_edges,k2_5_edges,
@@ -784,46 +857,54 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
         else:
             break
     ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,timeout_ms=60000,limit_results=10000000)
-    try:
-        answersdf = ans.drop_duplicates()
-    except:
-        return f"{graph_db} Search Timed Out! Try forming shorter queries or specifying Start & End nodes."
+
+    answersdf = ans.drop_duplicates()
+    columns = answersdf.columns
+    size = len(answersdf.index)
+
     answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
-                        columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in answersdf.columns],
-                        hidden_columns=[i for i in answersdf.columns if "esnd" in i],
-                        tooltip_data=[
-                            {
-                                column: {'value': str(value), 'type': 'markdown'}
-                                for column, value in row.items()
-                            } for row in answersdf.to_dict('records')
-                        ],
+                        columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in columns],
+                        hidden_columns=[i for i in columns if "esnd" in i or "MetaData" in i],
+                        tooltip_data=[{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in answersdf.index],
+                         css=[{
+                            'selector': '.dash-table-tooltip',
+                            'rule': 'background-color: violet; font-family: monospace; color: white; width: auto; word-break: normal'
+                        }],
+                        tooltip_duration=None,
                         sort_action="native",
                         filter_action="native", 
                         column_selectable="multi",
                         row_selectable="single",
                         selected_rows=[],
                         selected_columns=[],
-                        page_size=20,
-                        style_table={'overflowX': 'auto'},
+                        #page_size=20,
+                        style_table={'overflowX': 'auto','overflowY': 'auto','maxHeight':'40em','width':'70em'},
+                        style_cell={
+                            'color': "#000000",
+                            'whiteSpace': "normal",
+                            'textOverflow': 'ellipsis',
+                            'text-align': 'center', 
+                            #'maxWidth': '230px',
+                            'height': 'auto'
+                        },
                         style_header={
                             'fontWeight': "bold",
                             'whiteSpace': "normal",
-                            'height': "auto"},
-                        style_cell={
-                            'color': "#000000",
-                            'text-align': 'center'
-                            #'minWidth': '90px', 
-                            #'width': '90px', 
-                            #'maxWidth': '90px',
-                            },
+                            'backgroundColor': 'rgb(200, 200, 200)'
+                        },
                         style_data={
                             'whiteSpace': "normal",
                             'height': "auto",
-                            'lineHeight': '15px'},
+                            #'lineHeight': '15px',
+                        },
+                        style_data_conditional=[{
+                            'if': {'row_index': 'odd'},
+                            'backgroundColor': 'rgb(230, 230, 230)',
+                        }],
                         markdown_options={"html": True},
                         export_format="csv")
     
-    return ([f"{graph_db} Search Complete!"],
+    return ([f"{graph_db} search complete! {size} unique answers found."],
             answers_table,
             {"margin-right":"1em",'display':'block'},
             {"margin-right":"1em",'display':'block'},
@@ -831,18 +912,30 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
             {"margin":"1em",'display':'block', 'width':'69%'})
 
 @app.callback([Output('loading-2', 'children'),Output('start-map-output', 'value'),Output('end-map-output', 'value'),Output('start-map-div', 'style'),Output('end-map-div', 'style')],
-    Input('term-map-val', 'n_clicks'),
-    [State('kg-dropdown', 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value')])
-def KGNodeMapper(n_clicks, graph_db, start_terms, end_terms, start_label, end_label):
-    if(n_clicks <= 0): return ""
-    nodeCheck = checkNodeNameID(graph_db, start_terms, end_terms, start_label, end_label)
-    style = {"display":'block'}
-    return ([f"{graph_db} Term Mapping Complete!"],nodeCheck[0],nodeCheck[1],style,style)
+    [Input('start-term-map-val', 'n_clicks'),Input('end-term-map-val', 'n_clicks')],
+    [State('kg-dropdown', 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value'),
+    State('start-map-output', 'value'),State('end-map-output', 'value'),State('start-map-div', 'style'),State('end-map-div', 'style')],
+    prevent_initial_call=True)
+def KGNodeMapper(start_n_clicks, end_n_clicks, graph_db, start_terms, end_terms, start_label, end_label, s_map_val, e_map_val, s_map_style, e_map_style):
+    button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    print(button_id)
+
+    if button_id == 'start-term-map-val' and start_n_clicks:
+        nodeCheck = checkNodeNameID(graph_db, start_terms, start_label)
+        styleOn = {"display":'block'}
+        return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, e_map_val, styleOn, e_map_style)
+
+    elif button_id == 'end-term-map-val' and end_n_clicks:
+        nodeCheck = checkNodeNameID(graph_db, end_terms, end_label)
+        styleOn = {"display":'block'}
+        styleOff = {"display":'None'}
+        return ([f"{graph_db} Term Mapping Complete!"], s_map_val, nodeCheck, s_map_style, styleOn)
 
 @app.callback(
     Output('subgraph-fig','src'),
     Input('answers','selected_rows'),
-    State('answer-table','children'))
+    State('answer-table','children'),
+    prevent_initial_call=True)
 def ShowAnswerSubgraph(selected_row,answer_datatable):
     if len(selected_row)<1: return ""
     dff = pd.DataFrame(answer_datatable['props']['data'])
@@ -859,7 +952,8 @@ def ShowAnswerSubgraph(selected_row,answer_datatable):
     [State('answer-table', 'children'),
     State("source-dropdown", 'value'), 
     State("tail-dropdown", 'value'),
-    State("dwpc-weight-select", 'value')])
+    State("dwpc-weight-select", 'value')],
+    prevent_initial_call=True)
 def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     if(n_clicks <= 0): return ""
     #dff = pd.DataFrame.from_dict(answer_datatable)
@@ -868,6 +962,7 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     metapathnames=[]
     W = w
     column_names = list(dff)
+    print(column_names)
     for ind in dff.index:
         row = dff.iloc[ind]
         pdp = 1
@@ -890,7 +985,9 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     while abs(i)<=len(node_columns):
         dff[node_columns[-1]] = dff.apply(lambda x: x[node_columns[i]] if x[node_columns[-1]] =="?" else x[node_columns[-1]], axis=1)
         i+=-1
-    gkindex=["node0:`"+start_type+"`",node_columns[-1]]
+    #print(dff[node_columns[-1]])
+    #gkindex=["node0: biolink:ChemicalEntity", "node2: biolink:DiseaseOrPhenotypicFeature"]
+    gkindex=["node0: `"+start_type+"`",node_columns[-1]]
     gk = pd.pivot_table(dff, index=gkindex,columns=["Metapath Name"], values="PathDegreeProduct", aggfunc=sum)
     gk = gk.fillna(0)
     gk.reset_index(inplace=True)
@@ -903,17 +1000,28 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
                         filter_action="native",
                         row_selectable="multi",
                         selected_rows=[],
-                        page_size=20,
-                        style_table={'overflowX': 'auto'},
+                        #page_size=20,
+                        style_table={'overflowX': 'auto','overflowY': 'auto','maxHeight':'40em','width':'70em'},
                         style_header={
                             'fontWeight': "bold",
                             'whiteSpace': "normal",
-                            'height': "auto"},
-                        style_cell={'color': "#000000",
-                            'text-align': 'center'},
+                            'backgroundColor': 'rgb(200, 200, 200)'
+                        },
+                        style_cell={
+                            'color': "#000000",
+                            'whiteSpace': "normal",
+                            'textOverflow': 'ellipsis',
+                            'text-align': 'center', 
+                            #'maxWidth': '230px',
+                            'height': 'auto'
+                        },
                         style_data={
                             'whiteSpace': "normal",
                             'height': "auto"},
+                        style_data_conditional=[{
+                            'if': {'row_index': 'odd'},
+                            'backgroundColor': 'rgb(230, 230, 230)',
+                        }],
                         export_format="csv")
 
     style={'display':'block'}
@@ -929,7 +1037,8 @@ def CalculateDWPC(n_clicks,answer_datatable,start_type,end_type,w):
     Input('submit-rf-train', 'n_clicks')],
     [State('dwpc-table', 'children'),
     State('dwpc', 'selected_rows'),
-    State('pca-positives', 'value')])
+    State('pca-positives', 'value')],
+    prevent_initial_call=True)
 def MachineLearning(pca_clicks,rf_clicks,dwpc_datatable,selected_rows,positive_rows):
     button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     print(button_id)
@@ -1031,7 +1140,8 @@ def MachineLearning(pca_clicks,rf_clicks,dwpc_datatable,selected_rows,positive_r
 @app.callback(
     [Output('answers', 'data'), Output('answers', 'columns'), Output('answers','hidden_columns'),Output('loading-4', 'children')],
     [Input('submit-protein-names', 'n_clicks'), Input('submit-triangulator-val', 'n_clicks')],
-    [State('answer-table', 'children'), State('answers', 'selected_columns')])
+    [State('answer-table', 'children'), State('answers', 'selected_columns')],
+    prevent_initial_call=True)
 def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,selected_columns):
     button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     print(button_id)
@@ -1064,8 +1174,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 @app.callback(
     Output("download-dataframe-csv", "data"),
     Input("btn_csv", "n_clicks"),
-    [
-    State('starts','value'),
+    [State('starts','value'),
     State('ends','value'),
     State('pos-search-box','value'),
     # State('selector-1','style'),
@@ -1090,9 +1199,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
     # State('selector-10','children'),
     State('kg-dropdown','value'),
     State('edge-checkbox','value'),
-    State('settings_name','value')
-
-    ],
+    State('settings_name','value')],
     prevent_initial_call=True)
 def DownloadSettings(n_clicks, start_node_text, end_node_text, positive_rows,
     #s1s,s1c,s2s,s2c,s3s,s3c,s4s,s4c,s5s,s5c,s6s,s6c,s7s,s7c,s8s,s8c,s9s,s9c,s10s,s10c,
