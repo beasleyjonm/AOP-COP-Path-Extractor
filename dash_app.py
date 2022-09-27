@@ -1,3 +1,4 @@
+#from os import sendfile
 import pandas as pd
 import py2neo
 import dash
@@ -6,6 +7,7 @@ from dash import html
 from dash import Dash, dash_table
 import dash_daq as daq
 import dash_bootstrap_components as dbc
+import dash_cytoscape as cyto
 import numpy as np
 from dash.dependencies import Output, Input, State
 import requests as rq
@@ -23,6 +25,7 @@ from RandomForest import RandomForestClassifierTrain
 import io
 import base64
 import PCA
+
 
 app = dash.Dash()
 app.title = 'ExEmPLAR'
@@ -92,6 +95,7 @@ for i in range(1,11):
 #Make the selection button that determines globally whether or not edges can be specificied.
 #Turning on edge selection still allows wildcard searching.
 edge_checkbox = dcc.Checklist(id="edge-checkbox",style={'width': '10em'}, options=[{"label":"Use Edges","value":"True"}],value=[])
+metadata_checkbox = dcc.Checklist(id="metadata-checkbox",style={'width': '10em'}, options=[{"label":"Get Result MetaData","value":True}],value=[])
 
 #Make the 5 divs containing the node drop down. These also contain
 # a bold header saying "Level k-1:". These need to be in seperate
@@ -325,7 +329,8 @@ pca_fig_3comp = dcc.Graph(id='pca-fig-3comp',className="scatterplot",style={'dis
 randomforest_button = html.Button('Train Random Forest Classifier', id='submit-rf-train', n_clicks=0, style={"display":'None'})
 
 #Create elements to visualize subgraphs
-subgraph_fig = html.Img(id='subgraph-fig', style={'height':'100%'})
+subgraph_fig = html.Img(id='subgraph-fig')
+#cytoscape_fig = html.Div(id='cytoscape-fig', style={'width': '100%', 'height': '100%'})
 
 #Display Random Forest Cross Validation Stats
 rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'width':'30%','height':'30%'})
@@ -428,7 +433,8 @@ app.layout = html.Div(style={'display':'flex','flex-direction':'column','align-i
                 children=[
                     html.Div(children=[
                             html.Td(children=[pattern_select]),
-                            html.Td(edge_checkbox, style={'vertical-align':'bottom'})],
+                            html.Td(edge_checkbox, style={'vertical-align':'bottom'}),
+                            html.Td(metadata_checkbox, style={'vertical-align':'bottom'})],
                             style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
                     html.Div(children=['(2) Build a series of explanatory intermediates node and/or edge types between Start and End nodes.'],
                         style={'padding-top':'1em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
@@ -492,7 +498,9 @@ app.layout = html.Div(style={'display':'flex','flex-direction':'column','align-i
             ],
                     style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}), 
 
-            html.Td(answer_table,style={"vertical-align":"top"}),
+            html.Tr([answer_table,subgraph_fig],style={"vertical-align":"top",'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
+
+            #html.Div(cytoscape_fig),
 
             html.Tr([dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For degree-weight path counts button.
@@ -507,7 +515,7 @@ app.layout = html.Div(style={'display':'flex','flex-direction':'column','align-i
 
             style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
 
-        html.Div(html.Tr(subgraph_fig,style={"vertical-align":"top",'height':'100%'})),
+        #html.Div(html.Tr(subgraph_fig,style={"vertical-align":"top",'height':'100%'})),
 
         # html.Div([
         #     html.Tr(answer_table,style={"vertical-align":"top"}),
@@ -586,6 +594,8 @@ def UpdateNodeAndEdgeLabels(graph_db):
     rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
     rk_nodes=rk_nodes_and_edges[0]
     rk_edges=rk_nodes_and_edges[1]
+    #cmap = rk_nodes_and_edges[2]
+    #print(cmap)
     node_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes]
     edge_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_edges]
 
@@ -757,7 +767,8 @@ def processInputText(text):
 @app.callback(
     [Output('loading-1', 'children'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('dwpc-weight-select', 'style')],
     [Input('submit-val', 'n_clicks')],
-    [State("kg-dropdown", 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value'), State('tail-edge','value'),State('edge-checkbox', 'value'),State('pattern-select', 'value'),
+    [State("kg-dropdown", 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value'), State('tail-edge','value'),
+    State('edge-checkbox', 'value'),State('metadata-checkbox', 'value'),State('pattern-select', 'value'),
     State("node-dropdown-1-1", 'value'),State("node-dropdown-1-2", 'value'),State("node-dropdown-1-3", 'value'),State("node-dropdown-1-4", 'value'),State("node-dropdown-1-5", 'value'),
     State("edge-dropdown-1-1", 'value'),State("edge-dropdown-1-2", 'value'),State("edge-dropdown-1-3", 'value'),State("edge-dropdown-1-4", 'value'),State("edge-dropdown-1-5", 'value'),
     State("node-dropdown-2-1", 'value'),State("node-dropdown-2-2", 'value'),State("node-dropdown-2-3", 'value'),State("node-dropdown-2-4", 'value'),State("node-dropdown-2-5", 'value'),
@@ -783,7 +794,7 @@ def processInputText(text):
     State('pattern-name-1', 'value'),State('pattern-name-2', 'value'),State('pattern-name-3', 'value'),State('pattern-name-4', 'value'),State('pattern-name-5', 'value'),
     State('pattern-name-6', 'value'),State('pattern-name-7', 'value'),State('pattern-name-8', 'value'),State('pattern-name-9', 'value'),State('pattern-name-10', 'value')],
     prevent_initial_call=True)
-def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edges,show_edges, pattern_select,
+def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edges,show_edges,get_metadata,pattern_select,
         k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes,k1_1_edges,k1_2_edges,k1_3_edges,k1_4_edges,k1_5_edges,
         k2_1_nodes,k2_2_nodes,k2_3_nodes,k2_4_nodes,k2_5_nodes,k2_1_edges,k2_2_edges,k2_3_edges,k2_4_edges,k2_5_edges,
         k3_1_nodes,k3_2_nodes,k3_3_nodes,k3_4_nodes,k3_5_nodes,k3_1_edges,k3_2_edges,k3_3_edges,k3_4_edges,k3_5_edges,
@@ -856,7 +867,11 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
             i+=1
         else:
             break
-    ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,timeout_ms=60000,limit_results=10000000)
+    if len(get_metadata) > 0:
+        metadata_bool = get_metadata[0]
+    else: 
+        metadata_bool = False
+    ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_edges_dict,metadata_bool,timeout_ms=60000,limit_results=10000000)
 
     answersdf = ans.drop_duplicates()
     columns = answersdf.columns
@@ -874,7 +889,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
                         sort_action="native",
                         filter_action="native", 
                         column_selectable="multi",
-                        row_selectable="single",
+                        row_selectable="multi",
                         selected_rows=[],
                         selected_columns=[],
                         #page_size=20,
@@ -933,13 +948,14 @@ def KGNodeMapper(start_n_clicks, end_n_clicks, graph_db, start_terms, end_terms,
 
 @app.callback(
     Output('subgraph-fig','src'),
+    #Output('cytoscape-fig','children'),
     Input('answers','selected_rows'),
     State('answer-table','children'),
     prevent_initial_call=True)
-def ShowAnswerSubgraph(selected_row,answer_datatable):
-    if len(selected_row)<1: return ""
+def ShowAnswerSubgraph(selected_rows,answer_datatable):
+    if len(selected_rows)<1: return ""
     dff = pd.DataFrame(answer_datatable['props']['data'])
-    fig = VisualizeAnswerRow(dff,selected_row[0])
+    fig = VisualizeAnswerRow(dff,selected_rows)
     return fig
 
 @app.callback(
@@ -1170,13 +1186,45 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         return (ammended_answers, ammended_columns, hidden_columns, message)
     else:
         raise dash.exceptions.PreventUpdate
-    
+# @app.callback(
+#     Output("download-dataframe-csv", "data"),
+#     Input("btn_csv", "n_clicks"),
+#     State("layout", "children"),
+#     prevent_initial_call=True
+# )
+# def DownloadSettings(n_clicks, layout):
+#     if(n_clicks <= 0): return ""
+#     print(type(layout))
+#     settings = pickle.dump(layout)
+#     return settings
 @app.callback(
     Output("download-dataframe-csv", "data"),
     Input("btn_csv", "n_clicks"),
     [State('starts','value'),
     State('ends','value'),
     State('pos-search-box','value'),
+    # State("source-dropdown",'value'),State("tail-dropdown",'value'),
+    # State("node-dropdown-1-1",'value'),State("node-dropdown-1-2",'value'),State("node-dropdown-1-3",'value'),State("node-dropdown-1-4",'value'),State("node-dropdown-1-5",'value'),
+    # State("node-dropdown-2-1",'value'),State("node-dropdown-2-2",'value'),State("node-dropdown-2-3",'value'),State("node-dropdown-2-4",'value'),State("node-dropdown-2-5",'value'),
+    # State("node-dropdown-3-1",'value'),State("node-dropdown-3-2",'value'),State("node-dropdown-3-3",'value'),State("node-dropdown-3-4",'value'),State("node-dropdown-3-5",'value'),
+    # State("node-dropdown-4-1",'value'),State("node-dropdown-4-2",'value'),State("node-dropdown-4-3",'value'),State("node-dropdown-4-4",'value'),State("node-dropdown-4-5",'value'),
+    # State("node-dropdown-5-1",'value'),State("node-dropdown-5-2",'value'),State("node-dropdown-5-3",'value'),State("node-dropdown-5-4",'value'),State("node-dropdown-5-5",'value'),
+    # State("node-dropdown-6-1",'value'),State("node-dropdown-6-2",'value'),State("node-dropdown-6-3",'value'),State("node-dropdown-6-4",'value'),State("node-dropdown-6-5",'value'),
+    # State("node-dropdown-7-1",'value'),State("node-dropdown-7-2",'value'),State("node-dropdown-7-3",'value'),State("node-dropdown-7-4",'value'),State("node-dropdown-7-5",'value'),
+    # State("node-dropdown-8-1",'value'),State("node-dropdown-8-2",'value'),State("node-dropdown-8-3",'value'),State("node-dropdown-8-4",'value'),State("node-dropdown-8-5",'value'),
+    # State("node-dropdown-9-1",'value'),State("node-dropdown-9-2",'value'),State("node-dropdown-9-3",'value'),State("node-dropdown-9-4",'value'),State("node-dropdown-9-5",'value'),
+    # State("node-dropdown-10-1",'value'),State("node-dropdown-10-2",'value'),State("node-dropdown-10-3",'value'),State("node-dropdown-10-4",'value'),State("node-dropdown-10-5",'value'),
+    # State("edge-dropdown-1-1",'value'),State("edge-dropdown-1-2",'value'),State("edge-dropdown-1-3",'value'),State("edge-dropdown-1-4",'value'),State("edge-dropdown-1-5",'value'),
+    # State("edge-dropdown-2-1",'value'),State("edge-dropdown-2-2",'value'),State("edge-dropdown-2-3",'value'),State("edge-dropdown-2-4",'value'),State("edge-dropdown-2-5",'value'),
+    # State("edge-dropdown-3-1",'value'),State("edge-dropdown-3-2",'value'),State("edge-dropdown-3-3",'value'),State("edge-dropdown-3-4",'value'),State("edge-dropdown-3-5",'value'),
+    # State("edge-dropdown-4-1",'value'),State("edge-dropdown-4-2",'value'),State("edge-dropdown-4-3",'value'),State("edge-dropdown-4-4",'value'),State("edge-dropdown-4-5",'value'),
+    # State("edge-dropdown-5-1",'value'),State("edge-dropdown-5-2",'value'),State("edge-dropdown-5-3",'value'),State("edge-dropdown-5-4",'value'),State("edge-dropdown-5-5",'value'),
+    # State("edge-dropdown-6-1",'value'),State("edge-dropdown-6-2",'value'),State("edge-dropdown-6-3",'value'),State("edge-dropdown-6-4",'value'),State("edge-dropdown-6-5",'value'),
+    # State("edge-dropdown-7-1",'value'),State("edge-dropdown-7-2",'value'),State("edge-dropdown-7-3",'value'),State("edge-dropdown-7-4",'value'),State("edge-dropdown-7-5",'value'),
+    # State("edge-dropdown-8-1",'value'),State("edge-dropdown-8-2",'value'),State("edge-dropdown-8-3",'value'),State("edge-dropdown-8-4",'value'),State("edge-dropdown-8-5",'value'),
+    # State("edge-dropdown-9-1",'value'),State("edge-dropdown-9-2",'value'),State("edge-dropdown-9-3",'value'),State("edge-dropdown-9-4",'value'),State("edge-dropdown-9-5",'value'),
+    # State("edge-dropdown-10-1",'value'),State("edge-dropdown-10-2",'value'),State("edge-dropdown-10-3",'value'),State("edge-dropdown-10-4",'value'),State("edge-dropdown-10-5",'value'),
+    # State("tail-edge",'value'), 
     # State('selector-1','style'),
     # State('selector-1','children'),
     # State('selector-2','style'),
@@ -1202,7 +1250,28 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
     State('settings_name','value')],
     prevent_initial_call=True)
 def DownloadSettings(n_clicks, start_node_text, end_node_text, positive_rows,
-    #s1s,s1c,s2s,s2c,s3s,s3c,s4s,s4c,s5s,s5c,s6s,s6c,s7s,s7c,s8s,s8c,s9s,s9c,s10s,s10c,
+    # starter,ender,
+    # node_value-1-1,node_value-1-2,node_value-1-3,node_value-1-4,node_value-1-5,
+    # node_value-2-1,node_value-2-2,node_value-2-3,node_value-2-4,node_value-2-5,
+    # node_value-3-1,node_value-3-2,node_value-3-3,node_value-3-4,node_value-3-5,
+    # node_value-4-1,node_value-4-2,node_value-4-3,node_value-4-4,node_value-4-5,
+    # node_value-5-1,node_value-5-2,node_value-5-3,node_value-5-4,node_value-5-5,
+    # node_value-6-1,node_value-6-2,node_value-6-3,node_value-6-4,node_value-6-5,
+    # node_value-7-1,node_value-7-2,node_value-7-3,node_value-7-4,node_value-7-5,
+    # node_value-8-1,node_value-8-2,node_value-8-3,node_value-8-4,node_value-8-5,
+    # node_value-9-1,node_value-9-2,node_value-9-3,node_value-9-4,node_value-9-5,
+    # node_value-10-1,node_value-10-2,node_value-10-3,node_value-10-4,node_value-10-5,
+    # edge_value-1-1,edge_value-1-2,edge_value-1-3,edge_value-1-4,edge_value-1-5,
+    # edge_value-2-1,edge_value-2-2,edge_value-2-3,edge_value-2-4,edge_value-2-5,
+    # edge_value-3-1,edge_value-3-2,edge_value-3-3,edge_value-3-4,edge_value-3-5,
+    # edge_value-4-1,edge_value-4-2,edge_value-4-3,edge_value-4-4,edge_value-4-5,
+    # edge_value-5-1,edge_value-5-2,edge_value-5-3,edge_value-5-4,edge_value-5-5,
+    # edge_value-6-1,edge_value-6-2,edge_value-6-3,edge_value-6-4,edge_value-6-5,
+    # edge_value-7-1,edge_value-7-2,edge_value-7-3,edge_value-7-4,edge_value-7-5,
+    # edge_value-8-1,edge_value-8-2,edge_value-8-3,edge_value-8-4,edge_value-8-5,
+    # edge_value-9-1,edge_value-9-2,edge_value-9-3,edge_value-9-4,edge_value-9-5,
+    # edge_value-10-1,edge_value-10-2,edge_value-10-3,edge_value-10-4,edge_value-10-5,
+    # tail_edge_value,
     kgdrop,edgecheck,fname):
     # button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     # print(button_id)

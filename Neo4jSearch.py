@@ -4,7 +4,24 @@ import py2neo
 import neo4j
 #from neo4j import unit_of_work
 from matplotlib.pyplot import cm
-import re
+#import re
+from distinctipy import distinctipy
+
+def GenerateNodeColors(list_to_color):
+
+    # number of colours to generate
+    N = len(list_to_color)
+
+    # generate N visually distinct colours
+    colors = distinctipy.get_colors(N)
+
+    color_map = dict()
+    i=0
+    for item in list_to_color:
+        color_map.update({item:colors[i]})
+        i+=1
+    
+    return color_map
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
@@ -33,7 +50,7 @@ KGNameIDProps = {
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
 #Measured and it IS faster than Version 1.
-def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,timeout_ms,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
+def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,get_metadata,timeout_ms,limit_results,contains_starts=False,contains_ends=False,start_end_matching=False):
     if graph_db == "ROBOKOP":
         link = "neo4j://robokopkg.renci.org"
     elif graph_db == "HetioNet":
@@ -61,26 +78,31 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,timeout_ms,limit_resu
         for i in range(k):
             if i==0:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
-                robokop_output.update({f"n{i}:MetaData":[]})
+                if get_metadata == True:
+                    robokop_output.update({f"n{i}:MetaData":[]})
                 if graph_db == "ROBOKOP" or "ComptoxAI":
                     robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
-                if graph_db == "ROBOKOP":
-                    robokop_output.update({f"e{i}:MetaData":[]})
+                if get_metadata == True:
+                    if graph_db == "ROBOKOP":
+                        robokop_output.update({f"e{i}:MetaData":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
-                robokop_output.update({f"n{i}:MetaData":[]})
+                if get_metadata == True:
+                    robokop_output.update({f"n{i}:MetaData":[]})
                 if graph_db == "ROBOKOP" or "ComptoxAI":
                     robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                     robokop_output.update({f"esnd_n{i}_r{i}":[]})
                 robokop_output.update({f"edge{i}":[]})
-                if graph_db == "ROBOKOP":
-                    robokop_output.update({f"e{i}:MetaData":[]})
+                if get_metadata == True:
+                    if graph_db == "ROBOKOP":
+                        robokop_output.update({f"e{i}:MetaData":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
             else:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
-                robokop_output.update({f"n{i:}MetaData":[]})
+                if get_metadata == True:
+                    robokop_output.update({f"n{i:}MetaData":[]})
                 if graph_db == "ROBOKOP" or "ComptoxAI":
                     robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
@@ -131,23 +153,22 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,timeout_ms,limit_resu
                 else:
                     q = q + f"CALL{firstbracket}WITH n{i}, r{i-1} MATCH(n{i})-[r{i-1}]-(t) RETURN apoc.node.degree(n{i}, {firstmark if graph_db == 'ROBOKOP' else ''}TYPE(r{i-1}){secondmark if graph_db == 'ROBOKOP' else ''}) AS esnd_n{i}_r{i-1}{secondbracket} RETURN "
             
-            '''
-            for z in range(k):
-                if z==0:
-                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
-                elif z>0 and z<(k-1):
-                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
-                else: 
-                    q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
-            #q = q + f"* LIMIT {limit}" #Working on returning ALL results.
-            '''
-            for z in range(k):
-                if z==0:
-                    q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z}, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else 'TYPE(r'+str(z)+') as r'+str(z)}, "
-                elif z>0 and z<(k-1):
-                    q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else 'TYPE(r'+str(z)+') as r'+str(z)}, "
-                else: 
-                    q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
+            if get_metadata == True:
+                for z in range(k):
+                    if z==0:
+                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z}, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else 'TYPE(r'+str(z)+') as r'+str(z)}, "
+                    elif z>0 and z<(k-1):
+                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else 'TYPE(r'+str(z)+') as r'+str(z)}, "
+                    else: 
+                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
+            else:
+                for z in range(k):
+                    if z==0:
+                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
+                    elif z>0 and z<(k-1):
+                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
+                    else: 
+                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
 
         else:
             q = q + f"RETURN "
@@ -158,65 +179,36 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,timeout_ms,limit_resu
                     q = q + f"n{z}.{KGNameIDProps[graph_db][0]}, TYPE(r{z}), "
                 else: 
                     q = q + f"n{z}.{KGNameIDProps[graph_db][0]} LIMIT {limit}"
-            
         print(q+"\n")
-        '''
-        if graph_db == "ROBOKOP" or "ComptoxAI":
-            q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
-            for z in range(k):
-                if z==0:
-                    q = q + f"value.n{z}, value.esnd_n{z}_r{z}, value.r{z}, "
-                elif z>0 and z<(k-1):
-                    q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}, "
-                else: 
-                    q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}"
-        print(q+"\n")
-        '''
+        
+        if get_metadata == True:
+            if graph_db == "ROBOKOP" or "ComptoxAI":
+                q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
+                for z in range(k):
+                    if z==0:
+                        q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z},{ 'value.r'+str(z)+'.predicate,' if graph_db == 'ROBOKOP' else ''} value.r{z}, "
+                    elif z>0 and z<(k-1):
+                        q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z},{ 'value.r'+str(z)+'.predicate,' if graph_db == 'ROBOKOP' else ''} value.r{z}, "
+                    else: 
+                        q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}"
+            print(q+"\n")
 
-        if graph_db == "ROBOKOP" or "ComptoxAI":
-            q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
-            for z in range(k):
-                if z==0:
-                    q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z},{ 'value.r'+str(z)+'.predicate,' if graph_db == 'ROBOKOP' else ''} value.r{z}, "
-                elif z>0 and z<(k-1):
-                    q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z},{ 'value.r'+str(z)+'.predicate,' if graph_db == 'ROBOKOP' else ''} value.r{z}, "
-                else: 
-                    q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}"
-        print(q+"\n")
-        # timeout = 1   # [seconds]
+        else:
+            if graph_db == "ROBOKOP" or "ComptoxAI":
+                q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
+                for z in range(k):
+                    if z==0:
+                        q = q + f"value.n{z}, value.esnd_n{z}_r{z}, value.r{z}, "
+                    elif z>0 and z<(k-1):
+                        q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}, "
+                    else: 
+                        q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}"
+            print(q+"\n")
 
-        # timeout_start = time.time()
-        # t=0
-
-        # while time.time() < timeout_start + timeout:
-        #     time.sleep(0.1)
-        #     session = G.session()#.data()
-        #     matches = run_query(session,q)
-        #     t+=1
-        #     if t > 0:
-        #         break
         session = G.session()#.data()
         matches = run_query(session,q)
-        print('OK')
-        #matches = run_query(session,f"CALL apoc.cypher.runTimeboxed(\"{q}\", null, 20000)")
         print(type(matches))
-        # keys = list(matches[0].keys())
-        # print(matches[0].keys())
-        # l=0
-        # for m in matches:
-        #     for i in robokop_output:
-        #         key=keys[l]
-        #         print(key)
-        #         print(list(m.keys()))
-        #         robokop_output[i].append(m[l])
-        #         l+=1
-        #     for j in robokop_output:
-        #         m[l].split(", ")
-        #         robokop_output[j].append(m[l][0])
-        #         l += 1
-        # print("Done")
-        # return "Nothing to see here!"
-
+        
         for m in matches:
             l = 0
             for j in robokop_output:
@@ -226,17 +218,6 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,edges,timeout_ms,limit_resu
                 else:
                     robokop_output[j].append(str(m[l]).replace('biolink:','').replace('_',' ') if isinstance(m[l], str) else m[l])
 
-                # if 'MetaData' in j:
-                #     robokop_output[j].append(str(m[l]) if isinstance(m[l], dict) else m[l])
-                #     continue
-                # elif 'node' in j:
-                #     robokop_output[j].append(str(m[l][KGNameIDProps[graph_db][0]]).replace('biolink:','').replace('_',' ') if isinstance(m[l], dict) else m[l])
-                #     continue
-                # elif 'edge' in j:
-                #     robokop_output[j].append(str(m[l]).replace('biolink:','').replace('_',' ') if isinstance(m[l], dict) else m[l])
-                #     continue
-                # else:
-                #     robokop_output[j].append(m[l])#.replace('biolink:','').replace('_',' ') if isinstance(m[l], dict) else m[l])
                 l += 1
 
         robokop_output.update({"path":p})
@@ -276,8 +257,7 @@ def getNodeAndEdgeLabels(graph_db):
         rk_edges.append(m[0])
     rk_nodes.sort()
     rk_edges.sort()
-    # cmap = get_cmap(len(rk_nodes))
-    # print(cmap)
+    #cmap = GenerateNodeColors(rk_nodes)
 
     return (rk_nodes, rk_edges)
 
