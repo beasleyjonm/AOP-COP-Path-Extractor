@@ -130,8 +130,8 @@ def VisualizeAnswerRow(df,selected_rows):
     for e in added_edges:
         G.add_edge(e[0],e[2], type=e[1].replace('biolink:',''))
     edge_labels = nx.get_edge_attributes(G,'type')
-    fig = plt.figure(figsize = (8,8))
-    plt.margins(x=0.25,y=0.25)
+    fig = plt.figure(figsize = (7,7))
+    plt.margins(x=0.1,y=0.1)
     #plt.tight_layout()
     #plt.gca().set_facecolor('blue') #Background color of the whole app
     
@@ -152,21 +152,22 @@ def VisualizeAnswerRow(df,selected_rows):
     #nodecharacters=[len(x) for x in G.nodes()]
     nodesize=[300*len(x) for x in G.nodes()]
     #nodesize=400*max(nodecharacters)
-    pos = nx.circular_layout(G)
+    pos = nx.spring_layout(G)
     nx.draw(G, pos, with_labels=True, node_size=nodesize, node_color=node_colors, font_weight='bold')
     # for p in pos:  # raise text positions
     #     t=list(pos[p])
     #     t[0]=t[0]+0.1
     #     pos[p]=tuple(t)
-
+    '''
     nx.draw_networkx_edge_labels(G, pos, font_size=10, edge_labels=edge_labels,
                                 #connectionstyle='arc3, rad = 0.1',
                                 rotate=False,
                                 #horizontalalignment='left', 
                                 bbox=dict(alpha=0))
+    '''
     #networx2cytoscape(G)
     #xy_positions = nx.nx_agraph.graphviz_layout()
-    fig.set_facecolor('#7794B8')
+    fig.set_facecolor('white')
     buf = io.BytesIO() # in-memory files
     plt.savefig(buf, format = "png") # save to the above file object
     plt.close()
