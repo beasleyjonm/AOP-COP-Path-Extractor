@@ -1006,50 +1006,37 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
             {"margin-right":"1em",'display':'block'},
             {"margin":"1em",'display':'block', 'width':'69%'})
 
-running = False
 @app.callback([Output('loading-start', 'children'),Output('start-map-output', 'value'),Output('start-map-div', 'style')],
-    [Input('start-term-map-val', 'n_clicks'),Input('starts', 'value')],
-    [State('kg-dropdown', 'value'),State("source-dropdown", 'value'),State('start-map-output', 'value'),State('start-map-div', 'style')],
+    [Input('start-term-map-val', 'n_clicks')],
+    [State('starts', 'value'), State('kg-dropdown', 'value'),State("source-dropdown", 'value'),State('start-map-output', 'value'),State('start-map-div', 'style')],
     prevent_initial_call=True)
 def KGNodeMapper(start_n_clicks, start_terms, graph_db, start_label, s_map_val, s_map_style):
-    global running
-    if running ==True:
-        time.sleep(2)
-    if running == False:
-        button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-        styleOn = {"display":'block'}
-        styleOff = {"display":'None'}
-        if button_id == 'starts' or button_id == 'start-term-map-val':
-            running = True
-            nodeCheck = checkNodeNameID(graph_db, start_terms, start_label)
-            running = False
-            if nodeCheck == "":
-                return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOff)
-            else:
-                return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOn)
+    button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    styleOn = {"display":'block'}
+    styleOff = {"display":'None'}
+    if button_id == 'start-term-map-val' and start_n_clicks != 0:
+        nodeCheck = checkNodeNameID(graph_db, start_terms, start_label)
+        if nodeCheck == "":
+            return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOff)
+        else:
+            return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOn)
     else:
         return dash.no_update
 
 @app.callback([Output('loading-end', 'children'),Output('end-map-output', 'value'),Output('end-map-div', 'style')],
-    [Input('end-term-map-val', 'n_clicks'),Input('ends','value')],
-    [State('kg-dropdown', 'value'),State("tail-dropdown", 'value'),State('end-map-output', 'value'),State('end-map-div', 'style')],
+    [Input('end-term-map-val', 'n_clicks')],
+    [State('ends','value'), State('kg-dropdown', 'value'),State("tail-dropdown", 'value'),State('end-map-output', 'value'),State('end-map-div', 'style')],
     prevent_initial_call=True)
 def KGNodeMapper(end_n_clicks, end_terms, graph_db, end_label, e_map_val, e_map_style):
-    global running
-    if running ==True:
-        time.sleep(2)
-    if running == False:
-        button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-        styleOn = {"display":'block'}
-        styleOff = {"display":'None'}
-        if button_id == 'ends' or button_id == 'end-term-map-val':
-            running = True
-            nodeCheck = checkNodeNameID(graph_db, end_terms, end_label)
-            running = False
-            if nodeCheck == "":
-                return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOff)
-            else:
-                return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOn)
+    button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    styleOn = {"display":'block'}
+    styleOff = {"display":'None'}
+    if button_id == 'end-term-map-val' and end_n_clicks != 0:
+        nodeCheck = checkNodeNameID(graph_db, end_terms, end_label)
+        if nodeCheck == "":
+            return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOff)
+        else:
+            return ([f"{graph_db} Term Mapping Complete!"], nodeCheck, styleOn)
     else:
         return dash.no_update
 
