@@ -437,7 +437,7 @@ table = html.Table(tbody, style={'color': colors['text']})
 
 app.layout = html.Div(style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center','background-color': colors['background'], 'color': colors['text']}, 
     children=[
-        html.H1(children=['ExEmPLAR!',html.Br(),html.Div('Extracting, Exploring and Embedding Pathways Leading to Actionable Research',style={'font-size':'20px'})],
+        html.H1(children=['ExEmPLAR',html.Br(),html.Div('Extracting, Exploring and Embedding Pathways Leading to Actionable Research',style={'font-size':'20px'})],
             style={'padding-top':'1em','padding-bottom':'1em',"color":"white",'background-color':'rgb(10, 24, 53)','width':'100%'}),
         html.Div([
 
