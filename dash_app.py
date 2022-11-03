@@ -125,8 +125,6 @@ for i in range(1,11):
                 value="",
                 placeholder="Leave blank for *any*...",
                 spellCheck="false",
-                persistence="true",
-                persistence_type="session",
                 className='nodeOptions'
             )],
             id="node-options-div-{}".format(str(i)+"-"+str(k))
@@ -240,8 +238,6 @@ Rosuvastatin
 ''', #Causitive drugs taken from: https://www.brightfocus.org/alzheimers/article/is-it-something-im-taking-medications-that-can-mimic-dementia
         placeholder="Leave blank to include *any* start entities...",
         spellCheck="false",
-        persistence="true",
-        persistence_type="session",
         className='searchTerms'
 )])
 
@@ -252,8 +248,6 @@ ends = html.Div([
         value='''Alzheimer disease''',
         placeholder="Leave blank to include *any* end entities...",
         spellCheck="false",
-        persistence="true",
-        persistence_type="session",
         className='searchTerms'
     )])
 
@@ -281,7 +275,6 @@ start_map_output = html.Div([
     dcc.Textarea(
         id='start-map-output',
         spellCheck="false",
-        persistence="true",
         className='searchTerms',
     )],
     id='start-map-div',style={'display': 'None'})
@@ -291,8 +284,6 @@ end_map_output = html.Div([
     dcc.Textarea(
         id='end-map-output',
         spellCheck="false",
-        persistence="true",
-        persistence_type="session",
         className='searchTerms',
     )],
     id='end-map-div',style={'display': 'None'})
@@ -346,8 +337,6 @@ html.Div(html.B(children='Type Positive Start and End Terms, separated by ":"'))
     dcc.Textarea(id='pca-positives',
         placeholder="Leave blank to perform unlabelled PCA...",
         spellCheck="false",
-        persistence="true",
-        persistence_type="session",
         className='searchTerms')],
         id='pos-search-box',
         style={"display":"None"})
