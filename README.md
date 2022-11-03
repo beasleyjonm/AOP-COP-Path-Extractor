@@ -1,4 +1,4 @@
-# AOP-COP-Path-Extractor
+# ExEmPLAR: AOP-COP-Path-Extractor
 Construct Adverse/Clinical Outcome Pathway queries and extract path information from ROBOKOP or other Biomedical Knowledge Graphs
 
 ## Description
