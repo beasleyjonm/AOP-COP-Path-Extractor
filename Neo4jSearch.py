@@ -41,11 +41,14 @@ def run_query(tx,q):
     result = tx.run(q)
     return result
 
+# KGNamesIDProps specififies the keys to properties specific to KGs. The order of terms should be: node names, node primary identifiers, node alternate identifiers, predicate.
+# The order of keys should be: node names, node primary identifiers, node alternate identifiers, predicate.
+# If nodes have no equivalent identifiers in a KG, make primary and equivalent id keys the same.
 KGNameIDProps = {
-            "ROBOKOP":["name","id","predicate"],
-            "SCENT-KOP":["name","id","predicate"],
-            "HetioNet":["name","identifier","predicate"],
-            "ComptoxAI":["commonName","uri","predicate"]
+            "ROBOKOP":["name","id","equivalent_identifiers","predicate"],
+            "SCENT-KOP":["name","id","id","predicate"],
+            "HetioNet":["name","identifier","identifier","predicate"],
+            "ComptoxAI":["commonName","uri","uri","predicate"]
         }
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
@@ -107,7 +110,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 
                 if options[p][i-1] != "wildcard":
                     if ":" in options[p][i-1]:
-                        where_options = where_options +f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN [n{i}.{KGNameIDProps[graph_db][0]}, n{i}.{KGNameIDProps[graph_db][1]}]) AND "
+                        where_options = where_options +f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) AND "
                     else:
                         where_options = where_options + f"n{i}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
             else:
@@ -125,16 +128,16 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 continue
             elif "wildcard" in start_nodes:
                 if ":" in str(end_nodes):
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(end_nodes)} WHERE x IN [n{k-1}.{KGNameIDProps[graph_db][0]}, n{k-1}.{KGNameIDProps[graph_db][1]}]) "
+                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
                 else:
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
             elif "wildcard" in end_nodes:
                 if ":" in str(start_nodes):
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN [n{0}.{KGNameIDProps[graph_db][0]}, n{0}.{KGNameIDProps[graph_db][1]}]) "
+                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) "
                 que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
             else:
                 if ":" in str(start_nodes)+str(end_nodes):
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN [n{0}.{KGNameIDProps[graph_db][0]}, n{0}.{KGNameIDProps[graph_db][1]}]) AND any(x IN {str(end_nodes)} WHERE x IN [n{k-1}.{KGNameIDProps[graph_db][0]}, n{k-1}.{KGNameIDProps[graph_db][1]}]) "
+                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
                 else:
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
             q = que
@@ -318,14 +321,14 @@ def checkNodeNameID(graph_db, terms, label):
     #         except:
     #             continue
     '''
-    nodes_output = {"node name":[], "node id":[], "node degree":[]}
+    nodes_output = {"node name":[], "node id":[], "node eq id":[], "node degree":[]}
     
     searched_list = ",".join(f'"{x.lower()}"' for x in terms)
     
     if graph_db == "ROBOKOP" or graph_db == "ComptoxAI":
-        query = f"WITH [{searched_list}] as terms MATCH (n{':'+ Label if Label != 'wildcard' else ''}) WHERE apoc.meta.type(n.{KGNameIDProps[graph_db][0]}) = 'STRING' AND any(term IN terms WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS term) CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, degree LIMIT 10000"
+        query = f"WITH [{searched_list}] as terms MATCH (n{':'+ Label if Label != 'wildcard' else ''}) WHERE apoc.meta.type(n.{KGNameIDProps[graph_db][0]}) = 'STRING' AND any(term IN terms WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS term OR toLower(apoc.text.join(n.{KGNameIDProps[graph_db][2]}, ',')) CONTAINS term) CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, n.{KGNameIDProps[graph_db][2]}, degree LIMIT 10000"
     else:
-        query = f"MATCH (n{':'+Label if Label != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) IN [{searched_list}] RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]} LIMIT 10000"
+        query = f"MATCH (n{':'+Label if Label != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) IN [{searched_list}] OR toLower(apoc.text.join(n.{KGNameIDProps[graph_db][2]}, ',')) IN [{searched_list}] RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, n.{KGNameIDProps[graph_db][2]} LIMIT 10000"
     
     # for term in starts:
     #     nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
@@ -339,26 +342,57 @@ def checkNodeNameID(graph_db, terms, label):
         #nodes_output["search term"].append(term)
         nodes_output["node name"].append(m[0])
         nodes_output["node id"].append(m[1])
+        nodes_output["node eq id"].append(m[2])
         try:
-            nodes_output["node degree"].append(m[2])
+            nodes_output["node degree"].append(m[3])
         except:
             continue
     
     for term in terms:
         if term in nodes_output["node name"]:
             index = nodes_output["node name"].index(term)
+
             if graph_db == "ROBOKOP" or graph_db == "ComptoxAI":
-                message+=f"'{term}' found!\n"
-                #message+=f"'{term}' found! ID: {nodes_output['node id'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
+                #message+=f"'{term}' found!\n"
+                message+=f"'{term}' found! ID: {nodes_output['node id'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
             else:
-                message+=f"'{term}' found!\n"
-                #message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n\n"
+                #message+=f"'{term}' found!\n"
+                message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n\n"
+
+        elif term in nodes_output["node id"]:
+            index = nodes_output["node id"].index(term)
+            if graph_db == "ROBOKOP" or graph_db == "ComptoxAI":
+                #message+=f"'{term}' found!\n"
+                message+=f"'{term}' found! Name: {nodes_output['node name'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
+            else:
+                #message+=f"'{term}' found!\n"
+                message+=f"'{term}' found! Name: {nodes_output['node name'][0]}\n\n"
+        
+        elif any(term in sublist for sublist in nodes_output["node eq id"]):
+            found_list = [sublist for sublist in nodes_output["node eq id"] if term in sublist][0]
+            index = nodes_output["node eq id"].index(found_list)
+            if graph_db == "ROBOKOP" or graph_db == "ComptoxAI":
+                #message+=f"'{term}' found!\n"
+                message+=f"'{term}' found! Name: {nodes_output['node name'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
+            else:
+                #message+=f"'{term}' found!\n"
+                message+=f"'{term}' found! Name: {nodes_output['node name'][0]}\n\n"
+
         else:
-    
             if graph_db == "ROBOKOP" or graph_db == "ComptoxAI":
-                message+=f"'{term}' not in '{label.replace('biolink:','')}' category, try instead {[str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree']) if term.lower() in x.lower()]}\n\n"
+                message+=f"'{term}' not found, try instead:\n"
+                for w,x,y,z in zip(nodes_output['node name'],nodes_output['node id'],nodes_output['node eq id'],nodes_output['node degree']):
+                    if term.lower() in w.lower():
+                        message+=f"{str(w)+', Degree: '+str(z)}\n"
+                    elif term.lower() in x.lower():
+                        message+=f"{str(w)+', '+str(x)+', Degree: '+str(z)}\n"
+                    elif any(term.lower() in element.lower() for element in y):
+                        message+=f"{str(w)+', '+str([element for element in y if term.lower() in element.lower()])+', Degree: '+str(z)}\n"
+
+                message+=f"\n\n"
+                    #message+=f"'{term}' not found, try instead {[str(x)+'('+str(y)+')' for x,y in zip(nodes_output['node name'],nodes_output['node degree']) if term.lower() in x.lower()]}\n\n"
             else:
-                message+=f"'{term}' not in '{label.replace('biolink:','')}' category, try instead {str([str(x) for x in nodes_output['node name']])}\n\n"
+                message+=f"'{term}' not found, try instead {str([str(x) for x,y in zip(nodes_output['node name'],nodes_output['node id']) if term.lower() in x.lower()])}\n\n"
     
     # for term in ends:
     #     nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
