@@ -22,6 +22,7 @@ from VisualizePaths import VisualizeAnswerRow
 from PubMedSearch import PubMedCoMentions
 from HGNCProteinNames import GetProteinNames
 from RandomForest import RandomForestClassifierTrain
+import pickle
 import io
 import base64
 import PCA
@@ -123,6 +124,9 @@ for i in range(1,11):
                 id="node-options-{}".format(str(i)+"-"+str(k)),
                 value="",
                 placeholder="Leave blank for *any*...",
+                spellCheck="false",
+                persistence="true",
+                persistence_type="session",
                 className='nodeOptions'
             )],
             id="node-options-div-{}".format(str(i)+"-"+str(k))
@@ -235,6 +239,9 @@ Simvastatin
 Rosuvastatin
 ''', #Causitive drugs taken from: https://www.brightfocus.org/alzheimers/article/is-it-something-im-taking-medications-that-can-mimic-dementia
         placeholder="Leave blank to include *any* start entities...",
+        spellCheck="false",
+        persistence="true",
+        persistence_type="session",
         className='searchTerms'
 )])
 
@@ -244,6 +251,9 @@ ends = html.Div([
         id='ends',
         value='''Alzheimer disease''',
         placeholder="Leave blank to include *any* end entities...",
+        spellCheck="false",
+        persistence="true",
+        persistence_type="session",
         className='searchTerms'
     )])
 
@@ -270,6 +280,8 @@ start_map_output = html.Div([
     html.Div(html.B(children="'Start' Search Results\n")),
     dcc.Textarea(
         id='start-map-output',
+        spellCheck="false",
+        persistence="true",
         className='searchTerms',
     )],
     id='start-map-div',style={'display': 'None'})
@@ -278,6 +290,9 @@ end_map_output = html.Div([
     html.Div(html.B(children="'End' Search Results\n")),
     dcc.Textarea(
         id='end-map-output',
+        spellCheck="false",
+        persistence="true",
+        persistence_type="session",
         className='searchTerms',
     )],
     id='end-map-div',style={'display': 'None'})
@@ -330,6 +345,9 @@ pca_positives = html.Div([
 html.Div(html.B(children='Type Positive Start and End Terms, separated by ":"')),
     dcc.Textarea(id='pca-positives',
         placeholder="Leave blank to perform unlabelled PCA...",
+        spellCheck="false",
+        persistence="true",
+        persistence_type="session",
         className='searchTerms')],
         id='pos-search-box',
         style={"display":"None"})
@@ -435,10 +453,16 @@ table = html.Table(tbody, style={'color': colors['text']})
         #         html.Tr(children='A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND)).')],
         #         style={'margin-left':'0'}),
 
-app.layout = html.Div(style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center','background-color': colors['background'], 'color': colors['text']}, 
+app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center','background-color': colors['background'], 'color': colors['text']}, 
     children=[
-        html.H1(children=['ExEmPLAR',html.Br(),html.Div('Extracting, Exploring and Embedding Pathways Leading to Actionable Research',style={'font-size':'20px'})],
-            style={'padding-top':'1em','padding-bottom':'1em',"color":"white",'background-color':'rgb(10, 24, 53)','width':'100%'}),
+        html.H1(children=[
+            html.Div("",style={'height':'2em','width':'2em','padding-left':'2em'}),
+            html.Div([
+                'ExEmPLAR',
+                html.Br(),
+                html.Div('Extracting, Exploring and Embedding Pathways Leading to Actionable Research',style={'font-size':'20px'})]),
+            html.A(children=html.Img(src='/assets/github_icon_blue.png',style={'height':'2em','width':'2em'}),href='https://github.com/beasleyjonm/AOP-COP-Path-Extractor',target='_blank',rel='noopener noreferrer',style={'padding-right':'2em'})],
+            style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'space-between','padding':'1em',"color":"white",'background-color':'rgb(10, 24, 53)','width':'100%'}),
         html.Div([
 
         
@@ -1279,6 +1303,10 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         hidden_columns=comentions[2]
         message=comentions[3]
         return (ammended_answers, ammended_columns, hidden_columns, message)
+        '''
+    elif button_id == 'submit-answer-rank-val' and ranker_clicks:
+        dff = pd.DataFrame.from_dict(answer_datatable['props']['data'])
+        '''
     else:
         raise dash.exceptions.PreventUpdate
 # @app.callback(
@@ -1292,6 +1320,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
 #     print(type(layout))
 #     settings = pickle.dump(layout)
 #     return settings
+'''
 @app.callback(
     Output("download-dataframe-csv", "data"),
     Input("btn_csv", "n_clicks"),
@@ -1395,6 +1424,7 @@ def DownloadSettings(n_clicks, start_node_text, end_node_text, positive_rows,
     df = pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in d.items() ]))
     return dcc.send_data_frame(df.to_csv, f"{fname}.csv")
 
+
 @app.callback([
     Output('starts','value'),
     Output('ends','value'),
@@ -1438,11 +1468,36 @@ def UploadSettings(contents,filename):
     #edgecheck=df['Edges'][0]
 
     return starts,ends,positives,kgdrop#,edgecheck
+'''
+@app.callback(
+    Output("download-dataframe-csv", "data"),
+    Input("btn_csv", "n_clicks"),
+    State("app-layout", "children"),
+    State("settings_name","value"),
+    prevent_initial_call=True)
+def save(n_clicks, layout_state, fname):
+    if n_clicks is not None and n_clicks>0:
+        pickle.dump(layout_state, open(f"{fname}.pickle", "wb"))
+    return dcc.send_file(f"{fname}.pickle")
+
+@app.callback(
+    Output("app-layout", "children"),
+    Input('upload-data', 'contents'),
+    State('upload-data', 'filename'),
+    prevent_initial_call=True)
+def load(contents,fname):
+    print(fname)
+    content_type, content_string = contents.split(',')
+    print(content_type)
+    decoded = base64.b64decode(content_string)
+    layout_state = pickle.load(io.BytesIO(decoded))
+    return layout_state
+
 
  #############################################################    
 
 if __name__ == '__main__':
 
-    #app.run_server()
-    app.run_server(host='0.0.0.0', port=80,debug=False) #For production
+    app.run_server()
+    #app.run_server(host='0.0.0.0', port=80,debug=False) #For production
 
