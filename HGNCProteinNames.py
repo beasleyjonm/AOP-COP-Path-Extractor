@@ -9,13 +9,13 @@ def GetProteinNames(dff):
     genes = dict()
     proteins = list()
     #protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
-    protname_df = pd.read_csv("hgnc_complete_set.csv", encoding="utf-8")
-    print("Read HGNC protein names!")
+    protname_df = pd.read_csv("AOP-COP-Path-Extractor/hgnc_complete_set.csv", encoding="utf-8")
+    #print("Read HGNC protein names!")
 
     for col in gene_cols:
         genes[col] = dff[col].tolist() 
     for col_x in genes:
-        print(col_x)
+        #print(col_x)
         proteins = list()
         failed_proteins = list()
         for gene in genes[col_x]:
@@ -25,7 +25,7 @@ def GetProteinNames(dff):
                 index = int(i[0])
                 protein = protname_df.at[index, 'name']
                 proteins.append(protein)
-                print(gene + " maps to " + protein)
+                #print(gene + " maps to " + protein)
 
             except:
                 if gene == "Ins1":
@@ -34,7 +34,7 @@ def GetProteinNames(dff):
                 else:
                     proteins.append('FAILED')
                     failed_proteins.append(gene)
-                    print(f"Could not map gene symbol:{gene}")
+                    #print(f"Could not map gene symbol:{gene}")
 
         loc = dff.columns.get_loc(col_x)
         dff.insert(loc+1, col_x+' protein names', proteins)

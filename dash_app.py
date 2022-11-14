@@ -15,6 +15,7 @@ import xml.etree.cElementTree as ElementTree
 import time
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
+from Neo4jSearch import DisplayQuery
 from Neo4jSearch import getNodeAndEdgeLabels
 from Neo4jSearch import checkNodeNameID
 import VisualizePaths
@@ -251,8 +252,30 @@ ends = html.Div([
         className='searchTerms'
     )])
 
+#Create hidden text area and clipboard to copy Neo4j display queries.
+query_clipboard = dcc.Clipboard(
+        id="clipboard-button",
+        title="Copy Neo4j Queries",
+        style={
+            "display": "inline-block",
+            "fontSize": 20,
+            "verticalAlign": "top"})
+
+neo4j_link = html.A(
+    id = "neo4j-link",
+    children=html.Img(src='/assets/neo4j-icon.png',style={'height':'2em','width':'6em','padding-left':'1em'}),
+    href='http://robokopkg.renci.org/browser/',
+    target='_blank',
+    rel='noopener noreferrer')
+
 #Create buttons to submit ROBOKOP search, get protein names, save settings, and calculate DWPC.
-submit_button = html.Button('Submit', id='submit-val', n_clicks=0)#, style={"margin-right": "1em"})
+submit_button = html.Div(
+    children=[
+        html.Button('Submit', id='submit-val', n_clicks=0),
+        query_clipboard,
+        neo4j_link],
+    style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'space-between'})
+
 protein_names_button = html.Button('Get Protein Names', id='submit-protein-names', n_clicks=0, style={"display":'None'})
 triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
 dwpc_button = html.Button('Compute Degree-Weighted Path Counts', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
@@ -288,10 +311,7 @@ end_map_output = html.Div([
     )],
     id='end-map-div',style={'display': 'None'})
 
-# download_settings = html.Div([
-#                         html.Button("Save Settings", id="btn_csv"),
-#                         dcc.Input(id="settings_name",type='text',placeholder="Settings Filename"),
-#                         dcc.Download(id="download-dataframe-csv")])
+
 save_settings = html.Div([
                         html.Div([
                             html.Button("Save Settings", id="btn_csv"),
@@ -461,9 +481,13 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
                         kg_dropdown],
                         style={'padding-bottom':'1em','width':'20em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
             html.Div(children=[
-                        html.Td(children=[pattern_select]),
-                        html.Td(edge_checkbox, style={'vertical-align':'bottom'}),
-                        html.Td(metadata_checkbox, style={'vertical-align':'bottom'})],
+                        pattern_select,
+                        edge_checkbox,
+                        metadata_checkbox],
+                        # html.Td(children=[pattern_select]),
+                        # html.Td(children=[query_clipboard]),
+                        # html.Td(edge_checkbox, style={'vertical-align':'bottom'}),
+                        # html.Td(metadata_checkbox, style={'vertical-align':'bottom'})],
                         style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})],
             style={'background-color':'whitesmoke','display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
 
@@ -517,7 +541,7 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
             #         html.Td(start_map_output),html.Td(end_map_output)], 
             #         style={'padding-top': '1em'}),
                 
-        html.Div([load,submit_button, save_settings,
+        html.Div([load, submit_button, save_settings,
             dbc.Tooltip(
             "Check Start and End node names for corresponding terms in the knowledge graph. \
             Copy and paste suggested names if your supplied name is not found.",
@@ -602,7 +626,7 @@ def checkToBool(show_edge):
     if(len(show_edge)==1): return True
     else: return False
     
-@app.callback(Output("source-dropdown",'value'),Output("source-dropdown",'options'),Output("tail-dropdown",'value'),Output("tail-dropdown",'options'),
+@app.callback(Output('neo4j-link','href'),Output("source-dropdown",'value'),Output("source-dropdown",'options'),Output("tail-dropdown",'value'),Output("tail-dropdown",'options'),
     Output("node-dropdown-1-1",'options'),Output("node-dropdown-1-2",'options'),Output("node-dropdown-1-3",'options'),Output("node-dropdown-1-4",'options'),Output("node-dropdown-1-5",'options'),
     Output("node-dropdown-2-1",'options'),Output("node-dropdown-2-2",'options'),Output("node-dropdown-2-3",'options'),Output("node-dropdown-2-4",'options'),Output("node-dropdown-2-5",'options'),
     Output("node-dropdown-3-1",'options'),Output("node-dropdown-3-2",'options'),Output("node-dropdown-3-3",'options'),Output("node-dropdown-3-4",'options'),Output("node-dropdown-3-5",'options'),
@@ -630,15 +654,19 @@ def UpdateNodeAndEdgeLabels(graph_db):
     if graph_db == "ROBOKOP":
         starter = "biolink:ChemicalEntity"
         ender = "biolink:DiseaseOrPhenotypicFeature"
+        link = "http://robokopkg.renci.org/browser/"
     elif graph_db == "HetioNet":
         starter = "Compound"
         ender = "Disease"
+        link = "https://neo4j.het.io/browser/"
     elif graph_db == "SCENT-KOP":
         starter = "odorant"
         ender = "verbal_scent_descriptor"
+        link = "http://scentkop.apps.renci.org/browser/"
     elif graph_db == "ComptoxAI":
         starter = "Chemical"
         ender = "Disease"
+        link = "http://neo4j.comptox.ai/browser/"
     rk_nodes_and_edges=getNodeAndEdgeLabels(graph_db)
     rk_nodes=rk_nodes_and_edges[0]
     rk_edges=rk_nodes_and_edges[1]
@@ -647,7 +675,7 @@ def UpdateNodeAndEdgeLabels(graph_db):
     node_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_nodes]
     edge_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_edges]
 
-    return (starter, node_options,ender,
+    return (link,starter,node_options,ender,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
@@ -813,8 +841,8 @@ def processInputText(text):
     return l1
 
 @app.callback(
-    [Output('loading-1', 'children'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('dwpc-weight-select', 'style')],
-    [Input('submit-val', 'n_clicks')],
+    [Output('loading-1', 'children'),Output('clipboard-button','content'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('dwpc-weight-select', 'style')],
+    [Input('submit-val', 'n_clicks'),Input('clipboard-button', 'n_clicks')],
     [State("kg-dropdown", 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value'), State('tail-edge','value'),
     State('edge-checkbox', 'value'),State('metadata-checkbox', 'value'),State('pattern-select', 'value'),
 
@@ -863,7 +891,7 @@ def processInputText(text):
     State('pattern-name-1', 'value'),State('pattern-name-2', 'value'),State('pattern-name-3', 'value'),State('pattern-name-4', 'value'),State('pattern-name-5', 'value'),
     State('pattern-name-6', 'value'),State('pattern-name-7', 'value'),State('pattern-name-8', 'value'),State('pattern-name-9', 'value'),State('pattern-name-10', 'value')],
     prevent_initial_call=True)
-def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edges,show_edges,get_metadata,pattern_select,
+def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,end_node_text,s,t,t_edges,show_edges,get_metadata,pattern_select,
         k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes,k1_1_options,k1_2_options,k1_3_options,k1_4_options,k1_5_options,k1_1_edges,k1_2_edges,k1_3_edges,k1_4_edges,k1_5_edges,
         k2_1_nodes,k2_2_nodes,k2_3_nodes,k2_4_nodes,k2_5_nodes,k2_1_options,k2_2_options,k2_3_options,k2_4_options,k2_5_options,k2_1_edges,k2_2_edges,k2_3_edges,k2_4_edges,k2_5_edges,
         k3_1_nodes,k3_2_nodes,k3_3_nodes,k3_4_nodes,k3_5_nodes,k3_1_options,k3_2_options,k3_3_options,k3_4_options,k3_5_options,k3_1_edges,k3_2_edges,k3_3_edges,k3_4_edges,k3_5_edges,
@@ -876,8 +904,7 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
         k10_1_nodes,k10_2_nodes,k10_3_nodes,k10_4_nodes,k10_5_nodes,k10_1_options,k10_2_options,k10_3_options,k10_4_options,k10_5_options,k10_1_edges,k10_2_edges,k10_3_edges,k10_4_edges,k10_5_edges,
         k_val_1,k_val_2,k_val_3,k_val_4,k_val_5,k_val_6,k_val_7,k_val_8,k_val_9,k_val_10,
         pattern_name_1,pattern_name_2,pattern_name_3,pattern_name_4,pattern_name_5,pattern_name_6,pattern_name_7,pattern_name_8,pattern_name_9,pattern_name_10):
-    if(n_clicks <= 0): return ""
-    print("Running PATH SEARCH!")
+    button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     all_k_nodes={
     pattern_name_1:[k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes],
     pattern_name_2:[k2_1_nodes,k2_2_nodes,k2_3_nodes,k2_4_nodes,k2_5_nodes],
@@ -964,60 +991,73 @@ def submit_path_search(n_clicks,graph_db,start_node_text,end_node_text,s,t,t_edg
         metadata_bool = get_metadata[0]
     else: 
         metadata_bool = False
-    ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=60000,limit_results=10000)
+    if button_id == "clipboard-button" and clipboard_clicks:
+        display_query = DisplayQuery(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,100,start_end_matching=False)
+        #if(n_clicks <= 0): return ""
+        return [dash.no_update,
+                display_query,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update]
+    elif button_id == "submit-val" and submit_clicks:
+        print("Running PATH SEARCH!")
+        ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=60000,limit_results=10000)
 
-    answersdf = ans.drop_duplicates()
-    columns = answersdf.columns
-    size = len(answersdf.index)
+        answersdf = ans.drop_duplicates()
+        columns = answersdf.columns
+        size = len(answersdf.index)
 
-    answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
-                        columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in columns],
-                        hidden_columns=[i for i in columns if "esnd" in i or "MetaData" in i],
-                        tooltip_data=[{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in answersdf.index],
-                         css=[{
-                            'selector': '.dash-table-tooltip',
-                            'rule': 'background-color: slategray; font-family: monospace; color: white; width: auto; word-break: normal'
-                        }],
-                        tooltip_duration=None,
-                        sort_action="native",
-                        filter_action="native",
-                        column_selectable="multi",
-                        row_selectable="multi",
-                        selected_rows=[],
-                        selected_columns=[],
-                        #page_size=20,
-                        style_table={'overflowX': 'auto','overflowY': 'auto','maxHeight':'40em','width':'70em','box-shadow':"0px 4px 6px -1px rgba(0, 0, 0, 0.2),0px 2px 4px -1px rgba(0, 0, 0, 0.06)"},
-                        style_cell={
-                            'color': "#000000",
-                            'whiteSpace': "normal",
-                            'textOverflow': 'ellipsis',
-                            'text-align': 'center', 
-                            #'maxWidth': '230px',
-                            'height': 'auto'
-                        },
-                        style_header={
-                            'fontWeight': "bold",
-                            'whiteSpace': "normal",
-                            'backgroundColor': 'rgb(200, 200, 200)'
-                        },
-                        style_data={
-                            'whiteSpace': "normal",
-                            'height': "auto",
-                            #'lineHeight': '15px',
-                        },
-                        style_data_conditional=[{
-                            'if': {'row_index': 'odd'},
-                            'backgroundColor': 'rgb(230, 230, 230)',
-                        }],
-                        markdown_options={"html": True},
-                        export_format="csv")
-    
-    return ([f"{graph_db} search complete! {size} unique answers found."],
-            answers_table,
-            {"margin-right":"1em",'display':'block'},
-            {"margin-right":"1em",'display':'block'},
-            {"margin-right":"1em",'display':'block'},
-            {"margin":"1em",'display':'block', 'width':'69%'})
+        answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
+                            columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in columns],
+                            hidden_columns=[i for i in columns if "esnd" in i or "MetaData" in i],
+                            tooltip_data=[{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in answersdf.index],
+                            css=[{
+                                'selector': '.dash-table-tooltip',
+                                'rule': 'background-color: slategray; font-family: monospace; color: white; width: auto; word-break: normal'
+                            }],
+                            tooltip_duration=None,
+                            sort_action="native",
+                            filter_action="native",
+                            column_selectable="multi",
+                            row_selectable="multi",
+                            selected_rows=[],
+                            selected_columns=[],
+                            #page_size=20,
+                            style_table={'overflowX': 'auto','overflowY': 'auto','maxHeight':'40em','width':'70em','box-shadow':"0px 4px 6px -1px rgba(0, 0, 0, 0.2),0px 2px 4px -1px rgba(0, 0, 0, 0.06)"},
+                            style_cell={
+                                'color': "#000000",
+                                'whiteSpace': "normal",
+                                'textOverflow': 'ellipsis',
+                                'text-align': 'center', 
+                                #'maxWidth': '230px',
+                                'height': 'auto'
+                            },
+                            style_header={
+                                'fontWeight': "bold",
+                                'whiteSpace': "normal",
+                                'backgroundColor': 'rgb(200, 200, 200)'
+                            },
+                            style_data={
+                                'whiteSpace': "normal",
+                                'height': "auto",
+                                #'lineHeight': '15px',
+                            },
+                            style_data_conditional=[{
+                                'if': {'row_index': 'odd'},
+                                'backgroundColor': 'rgb(230, 230, 230)',
+                            }],
+                            markdown_options={"html": True},
+                            export_format="csv")
+        
+        return ([f"{graph_db} search complete! {size} unique answers found."],
+                dash.no_update,
+                answers_table,
+                {"margin-right":"1em",'display':'block'},
+                {"margin-right":"1em",'display':'block'},
+                {"margin-right":"1em",'display':'block'},
+                {"margin":"1em",'display':'block', 'width':'69%'})
 
 @app.callback([Output('loading-start', 'children'),Output('start-map-output', 'value'),Output('start-map-div', 'style')],
     [Input('start-term-map-val', 'n_clicks')],
@@ -1298,166 +1338,7 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
         '''
     else:
         raise dash.exceptions.PreventUpdate
-# @app.callback(
-#     Output("download-dataframe-csv", "data"),
-#     Input("btn_csv", "n_clicks"),
-#     State("layout", "children"),
-#     prevent_initial_call=True
-# )
-# def DownloadSettings(n_clicks, layout):
-#     if(n_clicks <= 0): return ""
-#     print(type(layout))
-#     settings = pickle.dump(layout)
-#     return settings
-'''
-@app.callback(
-    Output("download-dataframe-csv", "data"),
-    Input("btn_csv", "n_clicks"),
-    [State('starts','value'),
-    State('ends','value'),
-    State('pos-search-box','value'),
-    # State("source-dropdown",'value'),State("tail-dropdown",'value'),
-    # State("node-dropdown-1-1",'value'),State("node-dropdown-1-2",'value'),State("node-dropdown-1-3",'value'),State("node-dropdown-1-4",'value'),State("node-dropdown-1-5",'value'),
-    # State("node-dropdown-2-1",'value'),State("node-dropdown-2-2",'value'),State("node-dropdown-2-3",'value'),State("node-dropdown-2-4",'value'),State("node-dropdown-2-5",'value'),
-    # State("node-dropdown-3-1",'value'),State("node-dropdown-3-2",'value'),State("node-dropdown-3-3",'value'),State("node-dropdown-3-4",'value'),State("node-dropdown-3-5",'value'),
-    # State("node-dropdown-4-1",'value'),State("node-dropdown-4-2",'value'),State("node-dropdown-4-3",'value'),State("node-dropdown-4-4",'value'),State("node-dropdown-4-5",'value'),
-    # State("node-dropdown-5-1",'value'),State("node-dropdown-5-2",'value'),State("node-dropdown-5-3",'value'),State("node-dropdown-5-4",'value'),State("node-dropdown-5-5",'value'),
-    # State("node-dropdown-6-1",'value'),State("node-dropdown-6-2",'value'),State("node-dropdown-6-3",'value'),State("node-dropdown-6-4",'value'),State("node-dropdown-6-5",'value'),
-    # State("node-dropdown-7-1",'value'),State("node-dropdown-7-2",'value'),State("node-dropdown-7-3",'value'),State("node-dropdown-7-4",'value'),State("node-dropdown-7-5",'value'),
-    # State("node-dropdown-8-1",'value'),State("node-dropdown-8-2",'value'),State("node-dropdown-8-3",'value'),State("node-dropdown-8-4",'value'),State("node-dropdown-8-5",'value'),
-    # State("node-dropdown-9-1",'value'),State("node-dropdown-9-2",'value'),State("node-dropdown-9-3",'value'),State("node-dropdown-9-4",'value'),State("node-dropdown-9-5",'value'),
-    # State("node-dropdown-10-1",'value'),State("node-dropdown-10-2",'value'),State("node-dropdown-10-3",'value'),State("node-dropdown-10-4",'value'),State("node-dropdown-10-5",'value'),
-    # State("edge-dropdown-1-1",'value'),State("edge-dropdown-1-2",'value'),State("edge-dropdown-1-3",'value'),State("edge-dropdown-1-4",'value'),State("edge-dropdown-1-5",'value'),
-    # State("edge-dropdown-2-1",'value'),State("edge-dropdown-2-2",'value'),State("edge-dropdown-2-3",'value'),State("edge-dropdown-2-4",'value'),State("edge-dropdown-2-5",'value'),
-    # State("edge-dropdown-3-1",'value'),State("edge-dropdown-3-2",'value'),State("edge-dropdown-3-3",'value'),State("edge-dropdown-3-4",'value'),State("edge-dropdown-3-5",'value'),
-    # State("edge-dropdown-4-1",'value'),State("edge-dropdown-4-2",'value'),State("edge-dropdown-4-3",'value'),State("edge-dropdown-4-4",'value'),State("edge-dropdown-4-5",'value'),
-    # State("edge-dropdown-5-1",'value'),State("edge-dropdown-5-2",'value'),State("edge-dropdown-5-3",'value'),State("edge-dropdown-5-4",'value'),State("edge-dropdown-5-5",'value'),
-    # State("edge-dropdown-6-1",'value'),State("edge-dropdown-6-2",'value'),State("edge-dropdown-6-3",'value'),State("edge-dropdown-6-4",'value'),State("edge-dropdown-6-5",'value'),
-    # State("edge-dropdown-7-1",'value'),State("edge-dropdown-7-2",'value'),State("edge-dropdown-7-3",'value'),State("edge-dropdown-7-4",'value'),State("edge-dropdown-7-5",'value'),
-    # State("edge-dropdown-8-1",'value'),State("edge-dropdown-8-2",'value'),State("edge-dropdown-8-3",'value'),State("edge-dropdown-8-4",'value'),State("edge-dropdown-8-5",'value'),
-    # State("edge-dropdown-9-1",'value'),State("edge-dropdown-9-2",'value'),State("edge-dropdown-9-3",'value'),State("edge-dropdown-9-4",'value'),State("edge-dropdown-9-5",'value'),
-    # State("edge-dropdown-10-1",'value'),State("edge-dropdown-10-2",'value'),State("edge-dropdown-10-3",'value'),State("edge-dropdown-10-4",'value'),State("edge-dropdown-10-5",'value'),
-    # State("tail-edge",'value'), 
-    # State('selector-1','style'),
-    # State('selector-1','children'),
-    # State('selector-2','style'),
-    # State('selector-2','children'),
-    # State('selector-3','style'),
-    # State('selector-3','children'),
-    # State('selector-4','style'),
-    # State('selector-4','children'),
-    # State('selector-5','style'),
-    # State('selector-5','children'),
-    # State('selector-6','style'),
-    # State('selector-6','children'),
-    # State('selector-7','style'),
-    # State('selector-7','children'),
-    # State('selector-8','style'),
-    # State('selector-8','children'),
-    # State('selector-9','style'),
-    # State('selector-9','children'),
-    # State('selector-10','style'),
-    # State('selector-10','children'),
-    State('kg-dropdown','value'),
-    State('edge-checkbox','value'),
-    State('settings_name','value')],
-    prevent_initial_call=True)
-def DownloadSettings(n_clicks, start_node_text, end_node_text, positive_rows,
-    # starter,ender,
-    # node_value-1-1,node_value-1-2,node_value-1-3,node_value-1-4,node_value-1-5,
-    # node_value-2-1,node_value-2-2,node_value-2-3,node_value-2-4,node_value-2-5,
-    # node_value-3-1,node_value-3-2,node_value-3-3,node_value-3-4,node_value-3-5,
-    # node_value-4-1,node_value-4-2,node_value-4-3,node_value-4-4,node_value-4-5,
-    # node_value-5-1,node_value-5-2,node_value-5-3,node_value-5-4,node_value-5-5,
-    # node_value-6-1,node_value-6-2,node_value-6-3,node_value-6-4,node_value-6-5,
-    # node_value-7-1,node_value-7-2,node_value-7-3,node_value-7-4,node_value-7-5,
-    # node_value-8-1,node_value-8-2,node_value-8-3,node_value-8-4,node_value-8-5,
-    # node_value-9-1,node_value-9-2,node_value-9-3,node_value-9-4,node_value-9-5,
-    # node_value-10-1,node_value-10-2,node_value-10-3,node_value-10-4,node_value-10-5,
-    # edge_value-1-1,edge_value-1-2,edge_value-1-3,edge_value-1-4,edge_value-1-5,
-    # edge_value-2-1,edge_value-2-2,edge_value-2-3,edge_value-2-4,edge_value-2-5,
-    # edge_value-3-1,edge_value-3-2,edge_value-3-3,edge_value-3-4,edge_value-3-5,
-    # edge_value-4-1,edge_value-4-2,edge_value-4-3,edge_value-4-4,edge_value-4-5,
-    # edge_value-5-1,edge_value-5-2,edge_value-5-3,edge_value-5-4,edge_value-5-5,
-    # edge_value-6-1,edge_value-6-2,edge_value-6-3,edge_value-6-4,edge_value-6-5,
-    # edge_value-7-1,edge_value-7-2,edge_value-7-3,edge_value-7-4,edge_value-7-5,
-    # edge_value-8-1,edge_value-8-2,edge_value-8-3,edge_value-8-4,edge_value-8-5,
-    # edge_value-9-1,edge_value-9-2,edge_value-9-3,edge_value-9-4,edge_value-9-5,
-    # edge_value-10-1,edge_value-10-2,edge_value-10-3,edge_value-10-4,edge_value-10-5,
-    # tail_edge_value,
-    kgdrop,edgecheck,fname):
-    # button_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    # print(button_id)
-    # if button_id == 'btn_csv' and n_clicks:
-    if(n_clicks <= 0): return ""
 
-    if start_node_text != None:
-        start_nodes = processInputText(start_node_text)
-    else:
-        start_nodes = []
-
-    if end_node_text != None:
-        end_nodes = processInputText(end_node_text)
-    else:
-        end_nodes = []
-
-    if positive_rows != None:
-        positives = processInputText(positive_rows)
-    else:
-        positives = []
-
-    #selector = [s1s,s1c,s2s,s2c,s3s,s3c,s4s,s4c,s5s,s5c,s6s,s6c,s7s,s7c,s8s,s8c,s9s,s9c,s10s,s10c]
-    
-    
-    d = dict(Starts=np.array(start_nodes), Ends=np.array(end_nodes), Positives=np.array(positives), KnowledgeGraph=np.array(kgdrop))#,Edges=np.array(edgecheck)) #Selector=np.array(selector))
-    df = pd.DataFrame(dict([ (k,pd.Series(v)) for k,v in d.items() ]))
-    return dcc.send_data_frame(df.to_csv, f"{fname}.csv")
-
-
-@app.callback([
-    Output('starts','value'),
-    Output('ends','value'),
-    Output('pos-search-box','value'),
-    Output('kg-dropdown','value')
-    #Output('edge-checkbox','value')
-    ],
-    Input('upload-data', 'contents'),
-    State('upload-data', 'filename'),
-    prevent_initial_call=True)
-def UploadSettings(contents,filename):
-    content_type, content_string = contents.split(',')
-    decoded = base64.b64decode(content_string)
-    try:
-        if 'csv' in filename:
-            # Assume that the user uploaded a CSV file
-            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')),index_col=False)
-        elif 'xls' in filename:
-            # Assume that the user uploaded an excel file
-            df = pd.read_excel(io.BytesIO(decoded),index_col=False)
-    except Exception as e:
-        print(e)
-        return ""
-    starts=''''''
-    for n in df['Starts'].dropna().to_list():
-        print(n)
-        starts = starts+n+"\n"
-    # for n in range(len(starts)):
-    #     starts[n].replace(",","\n")
-    ends=''''''
-    for n in df['Ends'].dropna().to_list():
-        ends = ends+n+"\n"
-    # for n in range(len(ends)):
-    #     ends[n].replace(",","\n")
-    positives=''''''
-    for n in df['Positives'].dropna().to_list():
-        positives = positives+n+"\n"
-    # for n in range(len(positives)):
-    #     positives[n].replace(",","\n")
-    kgdrop=df['KnowledgeGraph'][0]
-    #edgecheck=df['Edges'][0]
-
-    return starts,ends,positives,kgdrop#,edgecheck
-'''
 @app.callback(
     Output("download-dataframe-csv", "data"),
     Input("btn_csv", "n_clicks"),
@@ -1487,6 +1368,6 @@ def load(contents,fname):
 
 if __name__ == '__main__':
 
-    app.run_server()
-    #app.run_server(host='0.0.0.0', port=80,debug=False) #For production
+    #app.run_server() #For local development
+    app.run_server(host='0.0.0.0', port=80,debug=False) #For production
 
