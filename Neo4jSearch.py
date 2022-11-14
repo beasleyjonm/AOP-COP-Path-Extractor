@@ -69,6 +69,9 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
         result=['No Results: Connection Broken']
         return (result)
     limit = str(limit_results)
+    #neo4j_query = "MATCH "
+    #display_where_options = "WHERE "
+    #p_num = 0
     robokop_output = {}
 
     frames=[]
@@ -79,9 +82,10 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
 
     for p in nodes:
         query = f"MATCH "
+        #display_query = ""
         k = len(nodes[p])
         robokop_output = {}
-        where_options= "WHERE "
+        where_options = "WHERE "
         for i in range(k):
             if i==0:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
@@ -94,7 +98,8 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                     if graph_db == "ROBOKOP":
                         robokop_output.update({f"e{i}:MetaData":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-                
+        #        display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
                 if get_metadata == True:
@@ -107,12 +112,15 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                     if graph_db == "ROBOKOP":
                         robokop_output.update({f"e{i}:MetaData":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-                
+        #        display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+
                 if options[p][i-1] != "wildcard":
                     if ":" in options[p][i-1]:
-                        where_options = where_options +f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) AND "
+                        where_options = where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) AND "
+        #                display_where_options = display_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
                     else:
                         where_options = where_options + f"n{i}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+        #                display_where_options = display_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
             else:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
                 if get_metadata == True:
@@ -120,8 +128,10 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 if graph_db == "ROBOKOP" or graph_db == "ComptoxAI":
                     robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
+         #       display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
         if len(where_options)>6:
             query = query + where_options
+
         if start_end_matching == False:
             que = query 
             if "wildcard" in start_nodes and "wildcard" in end_nodes:
@@ -129,19 +139,33 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
             elif "wildcard" in start_nodes:
                 if ":" in str(end_nodes):
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+            #        display_where_options = display_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
                 else:
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+            #        display_where_options = display_where_options + f"n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+                    
+
             elif "wildcard" in end_nodes:
                 if ":" in str(start_nodes):
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) "
+            #        display_query = display_query + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
                 que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
+            #    display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
+                
+
             else:
                 if ":" in str(start_nodes)+str(end_nodes):
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+            #        display_where_options = display_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
+                    
                 else:
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+            #        display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+                    
             q = que
-                            
+            #if p_num < len(nodes)-1:
+            #    display_where_options = display_where_options + "AND "
+                                 
         elif start_end_matching == True:
             for start, end in zip(start_nodes, end_nodes):
                 que = query
@@ -220,6 +244,9 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                         q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}"
             print(q+"\n")
 
+        #print(display_query)
+        #neo4j_query = f"{neo4j_query}{display_query}{' ' if p_num == (len(nodes)-1) else ', '}"
+        #p_num += 1
         session = G.session()#.data()
         matches = run_query(session,q)
         print(type(matches))
@@ -237,13 +264,71 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
 
         robokop_output.update({"path":p})
         frames.append(pd.DataFrame(data=robokop_output))
-        
+    #neo4j_query = neo4j_query + display_where_options + f"RETURN * LIMIT {100}"
+    #print(neo4j_query)
     result = pd.concat(frames, ignore_index=True, sort=False)
     result.fillna("?",inplace=True)
     path_column = result.pop('path')
     result.insert(0, 'path', path_column)
 
     return result
+
+#Function to supply Neo4j display query for all query patterns
+def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_results,start_end_matching=False):
+    
+    neo4j_query = "MATCH "
+    display_where_options = "WHERE "
+    p_num = 0
+   
+    for p in nodes:
+        display_query = ""
+        k = len(nodes[p])
+        for i in range(k):
+            if i==0:
+                display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+
+            elif i>0 and i<(k-1):
+                display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+
+                if options[p][i-1] != "wildcard":
+                    if ":" in options[p][i-1]:
+                        display_where_options = display_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
+                    else:
+                        display_where_options = display_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+            else:
+                display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
+
+        if start_end_matching == False:
+            if "wildcard" in start_nodes and "wildcard" in end_nodes:
+                continue
+            elif "wildcard" in start_nodes:
+                if ":" in str(end_nodes):
+                    display_where_options = display_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
+                else:
+                    display_where_options = display_where_options + f"n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+                    
+            elif "wildcard" in end_nodes:
+                if ":" in str(start_nodes):
+                    display_query = display_query + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
+                display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
+                
+            else:
+                if ":" in str(start_nodes)+str(end_nodes):
+                    display_where_options = display_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "     
+                else:
+                    display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+            
+            if p_num < len(nodes)-1:
+                display_where_options = display_where_options + "AND "
+                                           
+        print(display_query)
+        neo4j_query = f"{neo4j_query}{display_query}{' ' if p_num == (len(nodes)-1) else ', '}"
+        p_num += 1
+
+    neo4j_query = neo4j_query + display_where_options + f"RETURN * LIMIT {limit_results}"
+    print(neo4j_query)
+    
+    return neo4j_query
 
 def getNodeAndEdgeLabels(graph_db):
     if graph_db == "ROBOKOP":

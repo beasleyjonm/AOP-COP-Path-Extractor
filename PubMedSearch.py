@@ -48,7 +48,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
                         r = rq.get(url = URL, params = PARAMS)
                     tree = ElementTree.fromstring(r.text)
                     cnt = int(tree.find("Count").text)
-                    print(f"{term1}-{term2}:{cnt}")
+                    #print(f"{term1}-{term2}:{cnt}")
                     two_term_dict[key] = cnt
                 else:
                     cnt = two_term_dict[key]
@@ -59,7 +59,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
             dff.insert(0, f"{Term1}-{Term2} link", comention_counts_1_2_link)
 
     elif number == 3:
-        print('number=3')
+        #print('number=3')
         Term1=selected_columns[0].replace('`','').replace('biolink:','')
         Term2=selected_columns[1].replace('`','').replace('biolink:','')
         Term3=selected_columns[2].replace('`','').replace('biolink:','')
@@ -144,7 +144,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
                             tree = ElementTree.fromstring(r.text)
                             cnt = int(tree.find("Count").text)
                             three_term_dict[onetwothreekey] = cnt
-                            print(f"{term1}-{term2}-{term3}")
+                            #print(f"{term1}-{term2}-{term3}")
                         else:
                             cnt = three_term_dict[onetwothreekey]
                         comention_counts_1_2_3.append(cnt)
