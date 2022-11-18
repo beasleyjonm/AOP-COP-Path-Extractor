@@ -50,6 +50,34 @@ KGNameIDProps = {
             "HetioNet":["name","identifier","identifier","predicate"],
             "ComptoxAI":["commonName","uri","uri","predicate"]
         }
+
+# qualified_predicates=[
+#             "biolink:causes_increased_expression",
+#             "biolink:causes_decreased_expression",
+#             "biolink:causes_increased_secretion",
+#             "biolink:causes_decreased_activity",
+#             "biolink:causes_increased_activity",
+#             "biolink:causes_increased_synthesis",
+#             "biolink:causes_increased_mutation_rate",
+#             "biolink:causes_decreased_localization",
+#             "biolink:causes_increased_localization",
+#             "biolink:causes_increased_uptake",
+#             "biolink:causes_increased_degradation",
+#             "biolink:causes_increased_abundance",
+#             "biolink:causes_decreased_degradation",
+#             "biolink:causes_decreased_secretion",
+#             "biolink:causes_increased_stability",
+#             "biolink:causes_increased_transport",
+#             "biolink:causes_decreased_synthesis",
+#             "biolink:causes_decreased_abundance",
+#             "biolink:causes_decreased_stability",
+#             "biolink:causes_increased_molecular_modification",
+#             "biolink:causes_decreased_uptake",
+#             "biolink:causes_decreased_transport",
+#             "biolink:causes_increased_splicing",
+#             "biolink:causes_decreased_molecular_modification",
+#             "biolink:causes_decreased_mutation_rate"
+#         ]
 #Version 2
 #Uses WHERE IN [] to search for star/end nodes in a list and hopefully improve performance.
 #Measured and it IS faster than Version 1.
@@ -75,7 +103,33 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
     robokop_output = {}
 
     frames=[]
-    
+    qualified_predicates=[
+            "biolink:causes_increased_expression",
+            "biolink:causes_decreased_expression",
+            "biolink:causes_increased_secretion",
+            "biolink:causes_decreased_activity",
+            "biolink:causes_increased_activity",
+            "biolink:causes_increased_synthesis",
+            "biolink:causes_increased_mutation_rate",
+            "biolink:causes_decreased_localization",
+            "biolink:causes_increased_localization",
+            "biolink:causes_increased_uptake",
+            "biolink:causes_increased_degradation",
+            "biolink:causes_increased_abundance",
+            "biolink:causes_decreased_degradation",
+            "biolink:causes_decreased_secretion",
+            "biolink:causes_increased_stability",
+            "biolink:causes_increased_transport",
+            "biolink:causes_decreased_synthesis",
+            "biolink:causes_decreased_abundance",
+            "biolink:causes_decreased_stability",
+            "biolink:causes_increased_molecular_modification",
+            "biolink:causes_decreased_uptake",
+            "biolink:causes_decreased_transport",
+            "biolink:causes_increased_splicing",
+            "biolink:causes_decreased_molecular_modification",
+            "biolink:causes_decreased_mutation_rate"
+        ]
     #start_nodes = "["+",".join(f'"{x}"' for x in start_nodes)+"]"
     #end_nodes = "["+",".join(f'"{x}"' for x in end_nodes)+"]"
     print(options)
@@ -97,9 +151,14 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 if get_metadata == True:
                     if graph_db == "ROBOKOP":
                         robokop_output.update({f"e{i}:MetaData":[]})
-                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+                if str(edges[p][i].replace("`","")) in qualified_predicates:
+                    query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+'`biolink:affects`'}]-"
+                    where_options = where_options + f"r{i}.qualified_predicate = '{edges[p][i].split('_')[0].replace('`','')}' AND r{i}.object_direction = '{edges[p][i].split('_')[1].replace('`','')}' AND r{i}.object_aspect = '{edges[p][i].split('_')[2].replace('`','')}' AND "
+                else:
+                    query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
         #        display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-
+                # if edges[p][i].replace("`","") in qualified_predicates:
+                #     where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
                 if get_metadata == True:
@@ -111,15 +170,22 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 if get_metadata == True:
                     if graph_db == "ROBOKOP":
                         robokop_output.update({f"e{i}:MetaData":[]})
-                query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+                if edges[p][i].replace("`","") in qualified_predicates:
+                    query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+'`biolink:affects`'}]-"
+                    where_options = where_options + f"r{i}.qualified_predicate = '{edges[p][i].split('_')[0].replace('`','')}' AND r{i}.object_direction = '{edges[p][i].split('_')[1].replace('`','')}' AND r{i}.object_aspect = '{edges[p][i].split('_')[2].replace('`','')}' AND "
+                else:
+                    query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
         #        display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-
+                # if edges[p][i].replace("`","") in qualified_predicates:
+                #     where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
                 if options[p][i-1] != "wildcard":
                     if ":" in options[p][i-1]:
                         where_options = where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) AND "
+        #                where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
         #                display_where_options = display_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
                     else:
                         where_options = where_options + f"n{i}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+        #                where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
         #                display_where_options = display_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
             else:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
@@ -139,6 +205,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
             elif "wildcard" in start_nodes:
                 if ":" in str(end_nodes):
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+            #        que = que + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
             #        display_where_options = display_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
                 else:
                     que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
@@ -195,17 +262,17 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
             if get_metadata == True:
                 for z in range(k):
                     if z==0:
-                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z}, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else 'TYPE(r'+str(z)+') as r'+str(z)}, "
+                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}_type, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else ''}, "
                     elif z>0 and z<(k-1):
-                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else 'TYPE(r'+str(z)+') as r'+str(z)}, "
+                        q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}_type, {'properties(r'+str(z)+') as r'+str(z) if graph_db == 'ROBOKOP' else ''}, "
                     else: 
                         q = q + f"properties(n{z}) as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
             else:
                 for z in range(k):
                     if z==0:
-                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
+                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, apoc.text.join([r{z}.qualified_predicate,r{z}.object_direction,r{z}.object_aspect],' ') as r{z}_qual_pred, "
                     elif z>0 and z<(k-1):
-                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, "
+                        q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1}, esnd_n{z}_r{z}, TYPE(r{z}) as r{z}, apoc.text.join([r{z}.qualified_predicate,r{z}.object_direction,r{z}.object_aspect],' ') as r{z}_qual_pred, "
                     else: 
                         q = q + f"n{z}.{KGNameIDProps[graph_db][0]} as n{z}, esnd_n{z}_r{z-1} LIMIT {limit}"
 
@@ -225,9 +292,15 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
                 for z in range(k):
                     if z==0:
-                        q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z},{ 'value.r'+str(z)+'.predicate,' if graph_db == 'ROBOKOP' else ''} value.r{z}, "
+                        if graph_db == "ROBOKOP":
+                            q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z}, value.r{z}_type, apoc.text.join([value.r{z}.qualified_predicate,value.r{z}.object_direction,value.r{z}.object_aspect],' '), value.r{z}, "
+                        else:
+                            q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z}, value.r{z}_type, "
                     elif z>0 and z<(k-1):
-                        q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z},{ 'value.r'+str(z)+'.predicate,' if graph_db == 'ROBOKOP' else ''} value.r{z}, "
+                        if graph_db == "ROBOKOP":
+                            q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}_type, apoc.text.join([value.r{z}.qualified_predicate,value.r{z}.object_direction,value.r{z}.object_aspect],' '), value.r{z}, "
+                        else:
+                            q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}_type, "
                     else: 
                         q = q + f"value.n{z}.{KGNameIDProps[graph_db][0]}, value.n{z}, value.esnd_n{z}_r{z-1}"
             print(q+"\n")
@@ -237,9 +310,9 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 q = f"CALL apoc.cypher.runTimeboxed(\"{q}\",null,{timeout_ms}) YIELD value RETURN "
                 for z in range(k):
                     if z==0:
-                        q = q + f"value.n{z}, value.esnd_n{z}_r{z}, value.r{z}, "
+                        q = q + f"value.n{z}, value.esnd_n{z}_r{z}, value.r{z}, value.r{z}_qual_pred, "
                     elif z>0 and z<(k-1):
-                        q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}, "
+                        q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}, value.esnd_n{z}_r{z}, value.r{z}, value.r{z}_qual_pred, "
                     else: 
                         q = q + f"value.n{z}, value.esnd_n{z}_r{z-1}"
             print(q+"\n")
@@ -258,7 +331,11 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 if 'MetaData' in j:
                     robokop_output[j].append(str(m[l]).replace("{","").replace("}","").replace("'","") if isinstance(m[l], dict) else m[l])
                 else:
-                    robokop_output[j].append(str(m[l]).replace('biolink:','').replace('_',' ') if isinstance(m[l], str) else m[l])
+                    if 'edge' in j:
+                        robokop_output[j].append(str(m[l+1]).replace('biolink:','').replace('_',' ') if 'null' not in m[l+1] else str(m[l]).replace('biolink:','').replace('_',' '))
+                        l += 1
+                    else:
+                        robokop_output[j].append(str(m[l]).replace('biolink:','').replace('_',' ') if isinstance(m[l], str) else m[l])
 
                 l += 1
 
@@ -331,6 +408,33 @@ def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_result
     return neo4j_query
 
 def getNodeAndEdgeLabels(graph_db):
+    qualified_predicates=[
+            "biolink:causes_increased_expression",
+            "biolink:causes_decreased_expression",
+            "biolink:causes_increased_secretion",
+            "biolink:causes_decreased_activity",
+            "biolink:causes_increased_activity",
+            "biolink:causes_increased_synthesis",
+            "biolink:causes_increased_mutation_rate",
+            "biolink:causes_decreased_localization",
+            "biolink:causes_increased_localization",
+            "biolink:causes_increased_uptake",
+            "biolink:causes_increased_degradation",
+            "biolink:causes_increased_abundance",
+            "biolink:causes_decreased_degradation",
+            "biolink:causes_decreased_secretion",
+            "biolink:causes_increased_stability",
+            "biolink:causes_increased_transport",
+            "biolink:causes_decreased_synthesis",
+            "biolink:causes_decreased_abundance",
+            "biolink:causes_decreased_stability",
+            "biolink:causes_increased_molecular_modification",
+            "biolink:causes_decreased_uptake",
+            "biolink:causes_decreased_transport",
+            "biolink:causes_increased_splicing",
+            "biolink:causes_decreased_molecular_modification",
+            "biolink:causes_decreased_mutation_rate"
+        ]
     if graph_db == "ROBOKOP":
         link = "bolt://robokopkg.renci.org"
     elif graph_db == "HetioNet":
@@ -340,7 +444,11 @@ def getNodeAndEdgeLabels(graph_db):
     elif graph_db == "ComptoxAI":
         link = "bolt://neo4j.comptox.ai:7687"
     rk_nodes=[]
-    rk_edges=[]
+    #rk_edges=[]
+    if graph_db == "ROBOKOP":
+        rk_edges=qualified_predicates
+    else:
+        rk_edges=[]
     try:
         G = py2neo.Graph(link)
     except:
