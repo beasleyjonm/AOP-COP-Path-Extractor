@@ -1003,8 +1003,16 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                 dash.no_update]
     elif button_id == "submit-val" and submit_clicks:
         print("Running PATH SEARCH!")
-        ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=60000,limit_results=10000)
-
+        try:
+            ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=120000,limit_results=10000)
+        except:
+            return [[f"Either no answers were found or query execution time exceeded timeout limit (> 2 minutes). Please revise query patterns and try again."],
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update]
         answersdf = ans.drop_duplicates()
         columns = answersdf.columns
         size = len(answersdf.index)
@@ -1368,6 +1376,6 @@ def load(contents,fname):
 
 if __name__ == '__main__':
 
-    #app.run_server() #For local development
-    app.run_server(host='0.0.0.0', port=80,debug=False) #For production
+    app.run_server() #For local development
+    #app.run_server(host='0.0.0.0', port=80,debug=False) #For production
 
