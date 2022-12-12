@@ -50,6 +50,7 @@ kg_dropdown = dcc.Dropdown(
                     id="kg-dropdown",
                     options=[
                     {'label':"ROBOKOP", 'value':"ROBOKOP"},
+                    {'label':"YOBOKOP", 'value':"YOBOKOP"},
                     {'label':"SCENT-KOP", 'value':"SCENT-KOP"},
                     {'label':"HetioNet", 'value':"HetioNet"},
                     {'label':"ComptoxAI", 'value':"ComptoxAI"}],
@@ -368,7 +369,11 @@ randomforest_button = html.Button('Train Random Forest Classifier', id='submit-r
 
 #Create elements to visualize subgraphs
 subgraph_fig = html.Img(id='subgraph-fig')
-#cytoscape_fig = html.Div(id='cytoscape-fig', style={'width': '100%', 'height': '100%'})
+# cytoscape_fig = cyto.Cytoscape(
+#             id='cytoscape-fig',
+#             layout={'name':'circle'},
+#             style={'width': '100%', 'height': '400px'},
+#             elements=[]),
 
 #Display Random Forest Cross Validation Stats
 rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'width':'30%','height':'30%'})
@@ -461,7 +466,55 @@ table = html.Table(tbody, style={'color': colors['text']})
         #         html.Tr(children='To compute DWPC, change the "Weight" value then click "Submit DWPC".'),
         #         html.Tr(children='A Weight value of 0 returns absolute metapath counts, while higher values increasingly down-weight paths that pass through nodes with high edge-specific node degree (ESND)).')],
         #         style={'margin-left':'0'}),
+nodes = [
+    {
+        'data': {'id': short, 'label': label},
+        'position': {'x': 20 * lat, 'y': -20 * long}
+    }
+    for short, label, long, lat in (
+        ('la', 'Los Angeles', 34.03, -118.25),
+        ('nyc', 'New York', 40.71, -74),
+        ('to', 'Toronto', 43.65, -79.38),
+        ('mtl', 'Montreal', 45.50, -73.57),
+        ('van', 'Vancouver', 49.28, -123.12),
+        ('chi', 'Chicago', 41.88, -87.63),
+        ('bos', 'Boston', 42.36, -71.06),
+        ('hou', 'Houston', 29.76, -95.37)
+    )
+]
 
+edges = [
+    {'data': {'source': source, 'target': target}}
+    for source, target in (
+        ('van', 'la'),
+        ('la', 'chi'),
+        ('hou', 'chi'),
+        ('to', 'mtl'),
+        ('mtl', 'bos'),
+        ('nyc', 'bos'),
+        ('to', 'hou'),
+        ('to', 'nyc'),
+        ('la', 'nyc'),
+        ('nyc', 'bos')
+    )
+]
+
+default_stylesheet = [
+    {
+        'selector': 'node',
+        'style': {
+            'background-color': '#BFD7B5',
+            'label': 'data(label)'
+        }
+    },
+    {
+        'selector': 'edge',
+        'style': {
+            'line-color': '#A3C4BC'
+        }
+    }
+]
+elements = []
 app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center','background-color': colors['background'], 'color': colors['text']}, 
     children=[
         html.H1(children=[
@@ -490,7 +543,6 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
                         # html.Td(metadata_checkbox, style={'vertical-align':'bottom'})],
                         style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})],
             style={'background-color':'whitesmoke','display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
-
         html.Div(style={'padding-bottom':'3em','vertical-align':'top'},
             children=[
                 # html.Div(children=[
@@ -550,7 +602,7 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
             placement="bottom",
             delay={"show":200,"hide":300}
         )], style={'padding':'2em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center', 'padding-bottom': '1em','background-color':'whitesmoke','border-style':'outset'}),
-
+        
         html.Div([#html.Tr([
             html.Tr([protein_names_button,triangulator_button,load_4,#dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For protein-names button
@@ -570,9 +622,22 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
             ],
                     style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}), 
 
-            html.Div([answer_table,subgraph_fig],style={"vertical-align":"top",'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
-
-            #html.Div(cytoscape_fig),
+            html.Div([answer_table],style={"vertical-align":"top",'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
+            #subgraph_fig
+            cyto.Cytoscape(
+                id='cytoscape-fig',
+                minZoom=0.2,
+                maxZoom=2,
+                elements=elements,
+                #responsive=True,
+                layout={'name':'breadthfirst'},
+                style={'display':'None'},
+                stylesheet=[
+                    {'selector': 'node',
+                        'style': {'label': 'data(label)'}},
+                    {'selector': 'edge',
+                        'style': {'label': 'data(label)'}}
+                ]),
 
             html.Tr([dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For degree-weight path counts button.
@@ -655,6 +720,10 @@ def UpdateNodeAndEdgeLabels(graph_db):
         starter = "biolink:ChemicalEntity"
         ender = "biolink:DiseaseOrPhenotypicFeature"
         link = "http://robokopkg.renci.org/browser/"
+    elif graph_db == "YOBOKOP":
+        starter = "biolink:ChemicalEntity"
+        ender = "biolink:DiseaseOrPhenotypicFeature"
+        link = "http://yobokop-neo4j.apps.renci.org/browser/"
     elif graph_db == "HetioNet":
         starter = "Compound"
         ender = "Disease"
@@ -1016,48 +1085,53 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
         answersdf = ans.drop_duplicates()
         columns = answersdf.columns
         size = len(answersdf.index)
-
-        answers_table = dash_table.DataTable(id="answers",data=answersdf.to_dict('records'),
-                            columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in columns],
-                            hidden_columns=[i for i in columns if "esnd" in i or "MetaData" in i],
-                            tooltip_data=[{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in answersdf.index],
-                            css=[{
-                                'selector': '.dash-table-tooltip',
-                                'rule': 'background-color: slategray; font-family: monospace; color: white; width: auto; word-break: normal'
-                            }],
-                            tooltip_duration=None,
-                            sort_action="native",
-                            filter_action="native",
-                            column_selectable="multi",
-                            row_selectable="multi",
-                            selected_rows=[],
-                            selected_columns=[],
-                            #page_size=20,
-                            style_table={'overflowX': 'auto','overflowY': 'auto','maxHeight':'40em','width':'70em','box-shadow':"0px 4px 6px -1px rgba(0, 0, 0, 0.2),0px 2px 4px -1px rgba(0, 0, 0, 0.06)"},
-                            style_cell={
-                                'color': "#000000",
-                                'whiteSpace': "normal",
-                                'textOverflow': 'ellipsis',
-                                'text-align': 'center', 
-                                #'maxWidth': '230px',
-                                'height': 'auto'
-                            },
-                            style_header={
-                                'fontWeight': "bold",
-                                'whiteSpace': "normal",
-                                'backgroundColor': 'rgb(200, 200, 200)'
-                            },
-                            style_data={
-                                'whiteSpace': "normal",
-                                'height': "auto",
-                                #'lineHeight': '15px',
-                            },
-                            style_data_conditional=[{
-                                'if': {'row_index': 'odd'},
-                                'backgroundColor': 'rgb(230, 230, 230)',
-                            }],
-                            markdown_options={"html": True},
-                            export_format="csv")
+        if len(get_metadata) > 0:
+            tooltip = [{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in range(len(answersdf.index))]
+        else:
+            tooltip = []
+        answers_table = dash_table.DataTable(
+            id="answers",
+            data=answersdf.to_dict('records'),
+            columns=[{"name": i.replace("`","").replace("biolink:",""), "id": i, "hideable": True, "selectable": [True if "node" in i else False]} for i in columns],
+            hidden_columns=[i for i in columns if "esnd" in i or "MetaData" in i],
+            tooltip_data=tooltip,
+            css=[{
+                'selector': '.dash-table-tooltip',
+                'rule': 'background-color: slategray; font-family: monospace; color: white; width: auto; word-break: normal'
+            }],
+            tooltip_duration=None,
+            sort_action="native",
+            filter_action="native",
+            column_selectable="multi",
+            row_selectable="multi",
+            selected_rows=[],
+            selected_columns=[],
+            #page_size=20,
+            style_table={'overflowX': 'auto','overflowY': 'auto','maxHeight':'40em','width':'70em','box-shadow':"0px 4px 6px -1px rgba(0, 0, 0, 0.2),0px 2px 4px -1px rgba(0, 0, 0, 0.06)"},
+            style_cell={
+                'color': "#000000",
+                'whiteSpace': "normal",
+                'textOverflow': 'ellipsis',
+                'text-align': 'center', 
+                #'maxWidth': '230px',
+                'height': 'auto'
+            },
+            style_header={
+                'fontWeight': "bold",
+                'whiteSpace': "normal",
+                'backgroundColor': 'rgb(200, 200, 200)'
+            },
+            style_data={
+                'whiteSpace': "normal",
+                'height': "auto",
+                #'lineHeight': '15px',
+            },
+            style_data_conditional=[{
+                'if': {'row_index': 'odd'},
+                'backgroundColor': 'rgb(230, 230, 230)',
+            }],
+            markdown_options={"html": True},
+            export_format="csv")
         
         return ([f"{graph_db} search complete! {size} unique answers found."],
                 dash.no_update,
@@ -1103,16 +1177,20 @@ def KGNodeMapper(end_n_clicks, end_terms, graph_db, end_label, e_map_val, e_map_
 
 
 @app.callback(
-    Output('subgraph-fig','src'),
-    #Output('cytoscape-fig','children'),
+    #Output('subgraph-fig','src'),
+    Output('cytoscape-fig','elements'),
+    Output('cytoscape-fig','style'),
+    Output('cytoscape-fig','stylesheet'),
     Input('answers','selected_rows'),
-    State('answer-table','children'),
+    [State('answer-table','children'),
+    State('cytoscape-fig','elements')],
     prevent_initial_call=True)
-def ShowAnswerSubgraph(selected_rows,answer_datatable):
-    if len(selected_rows)<1: return ""
+def ShowAnswerSubgraph(selected_rows,answer_datatable,elements):
+    if len(selected_rows)<1: return dash.no_update,{'display':'None'},dash.no_update
     dff = pd.DataFrame(answer_datatable['props']['data'])
-    fig = VisualizeAnswerRow(dff,selected_rows)
-    return fig
+    fig = VisualizeAnswerRow(dff,selected_rows,elements)
+    style={'display':'block','width':'100%','height':'900px','background-color':'whitesmoke'}
+    return fig[0],style,fig[1]
 
 @app.callback(
     [Output('loading-3','children'),

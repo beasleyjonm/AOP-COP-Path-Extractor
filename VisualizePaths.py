@@ -54,17 +54,15 @@ def networx2cytoscape(G):
     print(cy)
     #print(xy_positions)
     return 
-    
 
-def VisualizeAnswerRow(df,selected_rows):
+def CytoscapeVisualize(df, selected_rows):
     cols = df.columns
     node_cols = []
     edge_cols = []
     searched_cols = []
     count_cols = [x for x in cols if " counts" in x]
     print(selected_rows)
-
-    for col in cols:
+    for col in cols: 
         if col.count('node')==1:# and df.at[row,col]!="?":
             if "protein names" not in col:
                 searched_cols.append(col)
@@ -78,17 +76,60 @@ def VisualizeAnswerRow(df,selected_rows):
     print(node_cols)
     print(edge_cols)
     print(count_cols)
+
+    node_elements = [
+        {'data': {'id':[], 'label':[]},
+        'position': {'x':[], 'y':[]},
+        'locked': False,
+        'grabbable': True,
+        'selectable': True,
+        'selected': False,
+        #'classes': 'blue square'
+        }
+    ]
+
+    edge_elements = [
+        {'data': {'source':[], 'target':[], 'label':[]}}
+    ]
+    return True
+
+def VisualizeAnswerRow(df,selected_rows,elements):
+    # if not selected_rows:
+    #     return elements
+    cols = df.columns
+    node_cols = []
+    edge_cols = []
+    searched_cols = []
+    count_cols = [x for x in cols if " counts" in x]
+    print(selected_rows)
+
+    for col in cols: 
+        if col.count('node')==1:# and df.at[row,col]!="?":
+            if "protein names" not in col:
+                searched_cols.append(col)
+                node_cols.append(col)
+        elif col.count('edge')==1:# and df.at[row,col]!="?":
+            searched_cols.append(col)
+            edge_cols.append(col)
+    #human_sort(searched_cols)
+    human_sort(node_cols)
+    human_sort(edge_cols)
+    #df = df[searched_cols].reindex(searched_cols, axis=1)
+    print(searched_cols)
+    print(node_cols)
+    print(edge_cols)
+    print(count_cols)
     nodetypecolors = GenerateNodeColors([x[7:].replace('`','').replace('biolink:','') for x in node_cols])
-    added_nodes = []
+    added_nodes = {}
     node_colors = []
     added_edges = []
     for row in selected_rows:
         for col in node_cols:
             if df.at[row,col] != "?":
-                if df.at[row,col].replace(' ','\n') in added_nodes:
+                if df.at[row,col].replace(' ','\n') in added_nodes.keys():
                     continue
                 else:
-                    added_nodes.append(df.at[row,col].replace(' ','\n'))
+                    added_nodes.update({df.at[row,col].replace(' ','\n'):col[7:].replace('`','').replace('biolink:','')})
                     node_colors.append(nodetypecolors[col[7:].replace('`','').replace('biolink:','')])
 
         for i in range(len(searched_cols)):
@@ -97,17 +138,118 @@ def VisualizeAnswerRow(df,selected_rows):
                 predicate_pos = cols.get_loc(searched_cols[i])
                 if df.iat[row,predicate_pos] == "?":
                     continue   
-
+                #n_pos = node_cols.get_loc(df = df.reindex(human_sort(cols), axis=1))
                 subject_pos = cols.get_loc(searched_cols[i-1])
+                if df.iat[row,subject_pos] == "?":
+                    n_pos = node_cols.index(searched_cols[i-1])
+                    a = 1
+                    while df.iat[row,subject_pos] == "?":
+                        if (n_pos+a) <= (len(node_cols)-1) & (n_pos-a) >= 0:
+                            if node_cols[n_pos+a][:6] == node_cols[n_pos][:6]:
+                                subject_pos = cols.get_loc(node_cols[n_pos+a])
+                            elif node_cols[n_pos-a][:6] == node_cols[n_pos][:6]:
+                                subject_pos = cols.get_loc(node_cols[n_pos-a])
+                            else:
+                                a+=1
+                                continue
+                        elif (n_pos+a) <= (len(node_cols)-1) & (n_pos-a) < 0:
+                            if node_cols[n_pos+a][:6] == node_cols[n_pos][:6]:
+                                    subject_pos = cols.get_loc(node_cols[n_pos+a])
+                            else:
+                                a+=1
+                                continue
+                        elif (n_pos+a) > (len(node_cols)-1) & (n_pos-a) >= 0:
+                            if node_cols[n_pos-a][:6] == node_cols[n_pos][:6]:
+                                    subject_pos = cols.get_loc(node_cols[n_pos-a])
+                            else:
+                                a+=1
+                                continue
+                        else:
+                            a+=1
 
                 object_pos = cols.get_loc(searched_cols[i+1])
                 if df.iat[row,object_pos] == "?":
+                    n_pos = node_cols.index(searched_cols[i+1])
                     a = 1
                     while df.iat[row,object_pos] == "?":
-                        object_pos = cols.get_loc(searched_cols[i+1+a])
-                        a+=1
-
+                        if (n_pos+a) <= (len(node_cols)-1) & (n_pos-a) >= 0:
+                            if node_cols[n_pos+a][:6] == node_cols[n_pos][:6]:
+                                object_pos = cols.get_loc(node_cols[n_pos+a])
+                            elif node_cols[n_pos-a][:6] == node_cols[n_pos][:6]:
+                                object_pos = cols.get_loc(node_cols[n_pos-a])
+                            else:
+                                a+=1
+                                continue
+                        elif (n_pos+a) <= (len(node_cols)-1) & (n_pos-a) < 0:
+                            if node_cols[n_pos+a][:6] == node_cols[n_pos][:6]:
+                                    object_pos = cols.get_loc(node_cols[n_pos+a])
+                            else:
+                                a+=1
+                                continue
+                        elif (n_pos+a) > (len(node_cols)-1) & (n_pos-a) >= 0:
+                            if node_cols[n_pos-a][:6] == node_cols[n_pos][:6]:
+                                    object_pos = cols.get_loc(node_cols[n_pos-a])
+                            else:
+                                a+=1
+                                continue
+                        else:
+                            a+=1
                 added_edges.append((df.iat[row,subject_pos].replace(' ','\n'),df.iat[row,predicate_pos].replace('_','\n'),df.iat[row,object_pos].replace(' ','\n')))
+
+    n = 0
+    node_elements = list()
+    edge_elements = list()
+    for node in added_nodes.keys():
+        element = {
+            'data': {'id':f"n{n}", 'label':node},
+            'position': {'x':n*5, 'y':0},
+            #'locked': False,
+            #'grabbable': True,
+            #'selectable': True,
+            #'selected': False,
+            'classes': added_nodes[node]
+        }
+        if not node_elements:
+            node_elements = [element]
+        else:
+            node_elements = node_elements + [element]
+        n+=1
+    e = 0
+    for edge in added_edges:
+        print(e)
+        source = [x['data']['id'] for x in node_elements if x['data']['label']==edge[0]][0]
+        target = [x['data']['id'] for x in node_elements if x['data']['label']==edge[2]][0]
+        label = edge[1]
+        element = {
+            'data': {'source':source, 'target':target, 'label':label}
+        }
+        if not edge_elements:
+            edge_elements = [element]
+        else:
+            edge_elements = edge_elements + [element]
+        e+=1
+    elements = node_elements + edge_elements
+    cyto_elements = []
+    [cyto_elements.append(x) for x in elements if x not in cyto_elements]
+    stylesheet=[
+                    {'selector': 'node',
+                        'style': {
+                            'label': 'data(label)',
+                            'text-wrap':'wrap'
+                        }},
+                    {'selector': 'edge',
+                        'style': {
+                            'label': 'data(label)',
+                            'curve-style': 'bezier' #segments
+                        }}
+                ]
+    for color in nodetypecolors.keys():
+        stylesheet = stylesheet + [{'selector':f".{color}", 'style': {'background-color': tuple(256*x for x in nodetypecolors[color]),'line-color': tuple(256*x for x in nodetypecolors[color])}}]
+    #print(cyto_elements)
+    
+    
+    return [cyto_elements,stylesheet]
+       
     '''
     elements=[{'data': {'id': x, 'label': x},'position': {'x': 2*len(x), 'y': 2*len(x)}} for x in added_nodes]+[{'data': {'source': e[0], 'target': e[2], 'label': e[1].replace('biolink:','')}} for e in added_edges]
     print(elements)
@@ -124,7 +266,7 @@ def VisualizeAnswerRow(df,selected_rows):
         # {'data': {'source': 'DNM1', 'target': 'Alzheimer\ndisease', 'label': 'entity negatively regulates entity'}}]
     )
     '''
-    
+    '''
     G = nx.Graph()
     G.add_nodes_from(added_nodes)
     for e in added_edges:
@@ -158,13 +300,13 @@ def VisualizeAnswerRow(df,selected_rows):
     #     t=list(pos[p])
     #     t[0]=t[0]+0.1
     #     pos[p]=tuple(t)
-    '''
+    
     nx.draw_networkx_edge_labels(G, pos, font_size=10, edge_labels=edge_labels,
                                 #connectionstyle='arc3, rad = 0.1',
                                 rotate=False,
                                 #horizontalalignment='left', 
                                 bbox=dict(alpha=0))
-    '''
+    
     #networx2cytoscape(G)
     #xy_positions = nx.nx_agraph.graphviz_layout()
     fig.set_facecolor('white')
@@ -174,6 +316,8 @@ def VisualizeAnswerRow(df,selected_rows):
     data = base64.b64encode(buf.getbuffer()).decode("utf8") # encode to html elements
 
     return "data:image/png;base64,{}".format(data)
+    '''
+
 
 def VisualizePubmedCounts(df,selected_row,count_cols):
     cols = df.columns
