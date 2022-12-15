@@ -392,8 +392,9 @@ def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_result
                     
             elif "wildcard" in end_nodes:
                 if ":" in str(start_nodes):
-                    display_query = display_query + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
+                    display_where_options = display_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
+                else:
+                    display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
                 
             else:
                 if ":" in str(start_nodes)+str(end_nodes):
