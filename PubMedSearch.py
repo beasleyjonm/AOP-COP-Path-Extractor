@@ -149,7 +149,7 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
                             cnt = three_term_dict[onetwothreekey]
                         comention_counts_1_2_3.append(cnt)
                         comention_counts_1_2_3_link.append(f"{str(cnt)} <a href=\"https://pubmed.ncbi.nlm.nih.gov/?term={term1} AND {term2} AND {term3}\" target=\"_blank\" rel=\"noopener noreferrer\">[Link]</a>")
-            
+        print(dff.columns)
         if f"{Term1}-{Term2} counts" or f"{Term2}-{Term1} counts"not in dff.columns:
             dff.insert(0, f"{Term1}-{Term2} counts", comention_counts_1_2)
         if f"{Term1}-{Term2} link" or f"{Term2}-{Term1} link"not in dff.columns:
@@ -178,3 +178,22 @@ def PubMedCoMentions(dff,selected_columns,expand=True):
     message = "Finished retrieving PubMed Abstract Co-Mentions!"
 
     return (ammended_answers, ammended_columns, hidden_columns, message)
+
+
+def PubMedCoMentionsSimple(term1,term2,expand=True):
+    URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+    if(expand):
+        two_term = f'{term1} AND {term2}'
+    else:
+        two_term = f'"{term1}"[All Fields] AND "{term2}"[All Fields]'
+    print(two_term)
+    PARAMS = {'db':'pubmed','term':two_term,'retmax':'0','api_key':'0595c1cc493e78f5a76d62b9f0cdc845e309'}
+    time.sleep(0.1)
+    r = rq.get(url = URL, params = PARAMS)
+    if(r.status_code != rq.codes.ok):
+        time.sleep(1.0)
+        r = rq.get(url = URL, params = PARAMS)
+    tree = ElementTree.fromstring(r.text)
+    cnt = int(tree.find("Count").text)
+    print(cnt)
+    return cnt

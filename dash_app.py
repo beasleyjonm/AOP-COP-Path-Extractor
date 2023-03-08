@@ -279,6 +279,9 @@ submit_button = html.Div(
 
 protein_names_button = html.Button('Get Protein Names', id='submit-protein-names', n_clicks=0, style={"display":'None'})
 triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-triangulator-val', n_clicks=0, style={"display":'None'})
+create_subgraph_fig_button = html.Button('Create Figure from Selected Rows', id='submit-subgraph-fig-val', n_clicks=0, style={"display":'None'})
+subgraph_fig_edge_checkbox = dcc.Checklist(id="subgraph-fig-edge-checkbox",style={"display":'None'}, options=[{"label":"Display/Hide Figure Edge Labels","value":True}],value=[])
+subgraph_fig_pubmed_checkbox = dcc.Checklist(id="subgraph-fig-pubmed-checkbox",style={"display":'None'}, options=[{"label":"Generate Pubmed Co-Mentions in Figure","value":True}],value=[])
 dwpc_button = html.Button('Compute Degree-Weighted Path Counts', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
 dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         value=0,
@@ -604,7 +607,7 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
         )], style={'padding':'2em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center', 'padding-bottom': '1em','background-color':'whitesmoke','border-style':'outset'}),
         
         html.Div([#html.Tr([
-            html.Tr([protein_names_button,triangulator_button,load_4,#dwpc_button, dwpc_weight, load_3,
+            html.Tr([protein_names_button,triangulator_button,create_subgraph_fig_button,html.Td([subgraph_fig_edge_checkbox,subgraph_fig_pubmed_checkbox]),load_4,#dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For protein-names button
                     "If \"Gene\" nodes are present, you may retrieve HGNC-Approved protein names for all genes.",
                     target="submit-protein-names",
@@ -638,6 +641,9 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
                     {'selector': 'edge',
                         'style': {'label': 'data(label)'}}
                 ]),
+            html.Button("Download graph", id="download-graph-button", n_clicks=0, style={'display':'None'}),
+            #html.Button("as png", id="btn-get-png"),
+            #html.Button("as svg", id="btn-get-svg")
 
             html.Tr([dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For degree-weight path counts button.
@@ -910,7 +916,7 @@ def processInputText(text):
     return l1
 
 @app.callback(
-    [Output('loading-1', 'children'),Output('clipboard-button','content'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('dwpc-weight-select', 'style')],
+    [Output('loading-1', 'children'),Output('clipboard-button','content'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('submit-subgraph-fig-val', 'style'),Output('subgraph-fig-edge-checkbox', 'style'),Output('subgraph-fig-pubmed-checkbox', 'style'),Output('dwpc-weight-select', 'style')],
     [Input('submit-val', 'n_clicks'),Input('clipboard-button', 'n_clicks')],
     [State("kg-dropdown", 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value'), State('tail-edge','value'),
     State('edge-checkbox', 'value'),State('metadata-checkbox', 'value'),State('pattern-select', 'value'),
@@ -1082,7 +1088,13 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                 dash.no_update,
                 dash.no_update,
                 dash.no_update]
+                
         answersdf = ans.drop_duplicates()
+        esnd_columns=[i for i in answersdf.columns if "esnd" in i]
+        answersdf['Max ESND'] = answersdf[esnd_columns].max(axis=1).to_list()
+        maxESNDcol = answersdf.pop('Max ESND')
+        answersdf.insert(1, 'Max ESND', maxESNDcol)
+        answersdf = answersdf.sort_values(by='Max ESND', ascending=True)
         columns = answersdf.columns
         size = len(answersdf.index)
         if len(get_metadata) > 0:
@@ -1139,6 +1151,9 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                 {"margin-right":"1em",'display':'block'},
                 {"margin-right":"1em",'display':'block'},
                 {"margin-right":"1em",'display':'block'},
+                {"margin-right":"1em",'display':'block'},
+                {"margin-right":"1em",'display':'block'},
+                {"margin-right":"1em",'display':'block'},
                 {"margin":"1em",'display':'block', 'width':'69%'})
 
 @app.callback([Output('loading-start', 'children'),Output('start-map-output', 'value'),Output('start-map-div', 'style')],
@@ -1175,22 +1190,57 @@ def KGNodeMapper(end_n_clicks, end_terms, graph_db, end_label, e_map_val, e_map_
     else:
         return dash.no_update
 
-
 @app.callback(
     #Output('subgraph-fig','src'),
     Output('cytoscape-fig','elements'),
     Output('cytoscape-fig','style'),
     Output('cytoscape-fig','stylesheet'),
-    Input('answers','selected_rows'),
+    Output('download-graph-button', 'style'),
+    Input('submit-subgraph-fig-val','n_clicks'),
     [State('answer-table','children'),
-    State('cytoscape-fig','elements')],
+    State('cytoscape-fig','elements'),
+    State('answers','selected_rows'),
+    State('subgraph-fig-edge-checkbox','value'),
+    State('subgraph-fig-pubmed-checkbox','value')
+    ],
     prevent_initial_call=True)
-def ShowAnswerSubgraph(selected_rows,answer_datatable,elements):
-    if len(selected_rows)<1: return dash.no_update,{'display':'None'},dash.no_update
-    dff = pd.DataFrame(answer_datatable['props']['data'])
-    fig = VisualizeAnswerRow(dff,selected_rows,elements)
-    style={'display':'block','width':'100%','height':'900px','background-color':'whitesmoke'}
-    return fig[0],style,fig[1]
+def ShowAnswerSubgraph(subgraph_fig_clicks,answer_datatable,elements,selected_rows,edge_labels_option,pubmed_labels_option):
+    if subgraph_fig_clicks != 0:
+        if len(selected_rows)<1: return dash.no_update,{'display':'None'},dash.no_update
+        dff = pd.DataFrame(answer_datatable['props']['data'])
+        if len(edge_labels_option) > 0:
+            edge_labels_bool = edge_labels_option[0]
+        else: 
+            edge_labels_bool = False
+        if len(pubmed_labels_option) > 0:
+            pubmed_labels_bool = pubmed_labels_option[0]
+        else: 
+            pubmed_labels_bool = False
+        fig = VisualizeAnswerRow(dff,selected_rows,elements,edge_labels=edge_labels_bool,pubmed_comentions=pubmed_labels_bool)
+        style={'display':'block','width':'100%','height':'900px','background-color':'whitesmoke'}
+        return fig[0],style,fig[1],{'display':'block'}
+    else:
+        return dash.no_update
+    
+@app.callback(
+    Output('cytoscape-fig', 'generateImage'),
+    Input('download-graph-button', 'n_clicks'),
+    prevent_initial_call=True)
+def get_image(download_clicks):
+    if download_clicks != 0:
+        # File type to output of 'svg, 'png', 'jpg', or 'jpeg' (alias of 'jpg')
+        ftype = 'jpg'
+        # 'store': Stores the image data in 'imageData' !only jpg/png are supported
+        # 'download'`: Downloads the image as a file with all data handling
+        # 'both'`: Stores image data and downloads image as file.
+        action = 'download'
+
+        return {
+            'type': ftype,
+            'action': action
+            }
+    else:
+        return dash.no_update
 
 @app.callback(
     [Output('loading-3','children'),
