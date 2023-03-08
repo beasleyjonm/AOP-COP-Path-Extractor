@@ -94,7 +94,6 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
     elif graph_db == "ComptoxAI":
         link = "bolt://neo4j.comptox.ai:7687"
     try:
-        #G = py2neo.Graph(link)
         if graph_db == "YOBOKOP":
             G = neo4j.GraphDatabase.driver(link, auth=("neo4j", "ncatgamma"))
         else:
@@ -103,9 +102,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
         result=['No Results: Connection Broken']
         return (result)
     limit = str(limit_results)
-    #neo4j_query = "MATCH "
-    #display_where_options = "WHERE "
-    #p_num = 0
+
     robokop_output = {}
 
     frames=[]
@@ -136,8 +133,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
             "biolink:causes_decreased_molecular_modification",
             "biolink:causes_decreased_mutation_rate"
         ]
-    #start_nodes = "["+",".join(f'"{x}"' for x in start_nodes)+"]"
-    #end_nodes = "["+",".join(f'"{x}"' for x in end_nodes)+"]"
+   
     print(options)
 
     for p in nodes:
@@ -162,9 +158,7 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                     where_options = where_options + f"r{i}.qualified_predicate = '{edges[p][i].split('_')[0].replace('`','')}' AND r{i}.object_direction = '{edges[p][i].split('_')[1].replace('`','')}' AND r{i}.object_aspect = '{edges[p][i].split('_')[2].replace('`','')}' AND "
                 else:
                     query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-        #        display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-                # if edges[p][i].replace("`","") in qualified_predicates:
-                #     where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
+  
             elif i>0 and i<(k-1):
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
                 if get_metadata == True:
@@ -181,18 +175,25 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                     where_options = where_options + f"r{i}.qualified_predicate = '{edges[p][i].split('_')[0].replace('`','')}' AND r{i}.object_direction = '{edges[p][i].split('_')[1].replace('`','')}' AND r{i}.object_aspect = '{edges[p][i].split('_')[2].replace('`','')}' AND "
                 else:
                     query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-        #        display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-                # if edges[p][i].replace("`","") in qualified_predicates:
-                #     where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
+        
                 if options[p][i-1] != "wildcard":
-                    if ":" in options[p][i-1]:
-                        where_options = where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) AND "
-        #                where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
-        #                display_where_options = display_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
-                    else:
-                        where_options = where_options + f"n{i}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
-        #                where_options = where_options + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
-        #                display_where_options = display_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+                    options = processInputText(options[p][i-1])
+                    any_options = [x for x in options if x[0:2] != "!="]
+                    not_options = [x.replace("!=","") for x in options if x[0:2] == "!="]
+                    if len(any_options) > 0:
+                        if ":" in str(any_options):
+                            where_options = where_options + f"any(x IN {str(any_options)} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) "
+                        else:
+                            where_options = where_options + f"n{i}.{KGNameIDProps[graph_db][0]} IN {str(any_options)} "
+                    
+                    if len(not_options) > 0:
+                        if len(any_options) > 0:
+                            where_options = where_options + "AND "
+                        if ":" in str(not_options):
+                            where_options = where_options + f"none(x IN {str(not_options)} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) "
+                        else:
+                            where_options = where_options + f"NOT n{i}.{KGNameIDProps[graph_db][0]} IN {str(not_options)} "
+
             else:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
                 if get_metadata == True:
@@ -200,57 +201,98 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
                     robokop_output.update({f"esnd_n{i}_r{i-1}":[]})
                 query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''}) "
-         #       display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
+        
+        query = query + where_options
         if len(where_options)>6:
-            query = query + where_options
+            query = query + "AND "
 
         if start_end_matching == False:
             que = query 
             if "wildcard" in start_nodes and "wildcard" in end_nodes:
                 continue
+
             elif "wildcard" in start_nodes:
-                if ":" in str(end_nodes):
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
-            #        que = que + f"r{i}.qualified_predicate = {edges[p][i].split('_')[0]} AND r{i}.object_direction = {edges[p][i].split('_')[1]}, r{i}.object_aspect = {edges[p][i].split('_')[2]}] AND "
-            #        display_where_options = display_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                else:
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-            #        display_where_options = display_where_options + f"n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-                    
+                any_ends = [x for x in end_nodes if  x[0:2] != "!="]
+                not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
+                if len(any_ends) > 0:
+                    if ":" in str(any_ends):
+                        que = que + f"any(x IN {str(any_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "               
+                    else:
+                        que = que + f"n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(any_ends)} "
+
+                if len(not_ends) > 0:
+                    if len(any_ends) > 0:
+                        que = que + "AND "
+                    if ":" in str(not_ends):
+                        que = que + f"none(x IN {str(not_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "               
+                    else:
+                        que = que + f"NOT n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(not_ends)} "
 
             elif "wildcard" in end_nodes:
-                if ":" in str(start_nodes):
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) "
-            #        display_query = display_query + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
-            #    display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
-                
+                any_starts = [x for x in start_nodes if  x[0:2] != "!="]
+                not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
+                if len(any_starts) > 0:
+                    if ":" in str(any_starts):
+                        que = que + f"any(x IN {str(any_starts)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) "
+                    else:
+                        que = que + f"n{0}.{KGNameIDProps[graph_db][0]} IN {str(any_starts)} "
+
+                if len(not_starts) > 0:
+                    if len(any_starts) > 0:
+                        que = que + "AND "
+                    if ":" in str(not_starts):
+                        que = que + f"none(x IN {str(not_starts)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "               
+                    else:
+                        que = que + f"NOT n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(not_starts)} "
 
             else:
-                if ":" in str(start_nodes)+str(end_nodes):
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} any(x IN {str(start_nodes)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
-            #        display_where_options = display_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                    
-                else:
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-            #        display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-                    
+                any_ends = [x for x in end_nodes if  x[0:2] != "!="]
+                not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
+                any_starts = [x for x in start_nodes if  x[0:2] != "!="]
+                not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
+                if len(any_starts) > 0:
+                    if ":" in str(any_starts):
+                        que = que + f"any(x IN {str(any_starts)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) " 
+                    else:
+                        que = que + f"n{0}.{KGNameIDProps[graph_db][0]} IN {str(any_starts)} "
+                if len(any_ends) > 0:
+                    if len(any_starts) > 0:
+                        que = que + "AND "
+                    if ":" in str(any_ends):
+                        que = que + f"any(x IN {str(any_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+                    else:
+                        que = que + f"n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(any_ends)} "
+
+                if len(not_starts) > 0:
+                    if len(any_starts)+len(any_ends) > 0:
+                        que = que + "AND "
+                    if ":" in str(not_starts):
+                        que = que + f"none(x IN {str(not_starts)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) " 
+                    else:
+                        que = que + f"NOT n{0}.{KGNameIDProps[graph_db][0]} IN {str(not_starts)} "
+                
+                if len(not_ends) > 0:
+                    if len(any_starts)+len(any_ends)+len(not_starts) > 0:
+                        que = que + "AND "
+                    if ":" in str(not_ends):
+                        que = que + f"none(x IN {str(not_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+                    else:
+                        que = que + f"NOT n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(not_ends)} "
+                  
             q = que
-            #if p_num < len(nodes)-1:
-            #    display_where_options = display_where_options + "AND "
                                  
-        elif start_end_matching == True:
-            for start, end in zip(start_nodes, end_nodes):
-                que = query
-                if "wildcard" in start and "wildcard" in end:
-                    que = que
-                elif "wildcard" in start:
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{k-1}.{KGNameIDProps[graph_db][0]} = \"{end}\" "
-                elif "wildcard" in end:
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} = \"{start}\" "
-                else:
-                    que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.{KGNameIDProps[graph_db][0]}) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
-                q = que
+        # elif start_end_matching == True:
+        #     for start, end in zip(start_nodes, end_nodes):
+        #         que = query
+        #         if "wildcard" in start and "wildcard" in end:
+        #             que = que
+        #         elif "wildcard" in start:
+        #             que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{k-1}.{KGNameIDProps[graph_db][0]} = \"{end}\" "
+        #         elif "wildcard" in end:
+        #             que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} = \"{start}\" "
+        #         else:
+        #             que = que + f"{'WHERE' if len(where_options)<=6 else ''} n{0}.{KGNameIDProps[graph_db][0]} {'CONTAINS' if contains_starts==True else '='} \"{start}\" AND (n{k-1}.{KGNameIDProps[graph_db][0]}) {'CONTAINS' if contains_ends==True else '='} \"{end}\" "
+        #         q = que
                 
         if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
             for i in range(k):

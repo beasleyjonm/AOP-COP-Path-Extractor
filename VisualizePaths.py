@@ -6,7 +6,9 @@ plt.switch_backend('agg')
 import io
 import base64
 from Neo4jSearch import GenerateNodeColors
+from PubMedSearch import PubMedCoMentionsSimple
 import dash_cytoscape as cyto
+
 
 
 
@@ -93,7 +95,7 @@ def CytoscapeVisualize(df, selected_rows):
     ]
     return True
 
-def VisualizeAnswerRow(df,selected_rows,elements):
+def VisualizeAnswerRow(df,selected_rows,elements,edge_labels=True, pubmed_comentions=True):
     # if not selected_rows:
     #     return elements
     cols = df.columns
@@ -216,13 +218,28 @@ def VisualizeAnswerRow(df,selected_rows,elements):
         n+=1
     e = 0
     for edge in added_edges:
-        print(e)
         source = [x['data']['id'] for x in node_elements if x['data']['label']==edge[0]][0]
+        source_name = [x['data']['label'] for x in node_elements if x['data']['id']==source][0]
         target = [x['data']['id'] for x in node_elements if x['data']['label']==edge[2]][0]
-        label = edge[1]
-        element = {
-            'data': {'source':source, 'target':target, 'label':label}
-        }
+        target_name = [x['data']['label'] for x in node_elements if x['data']['id']==target][0]
+
+        if edge_labels == True:
+            label = edge[1]
+            if pubmed_comentions == True:
+                label = label + f" ({PubMedCoMentionsSimple(source_name,target_name,expand=True)})"
+            element = {
+                'data': {'source':source, 'target':target, 'label':label}
+            }
+        else:
+            if pubmed_comentions == True:
+                label = f"({PubMedCoMentionsSimple(source_name,target_name,expand=True)})"
+                element = {
+                    'data': {'source':source, 'target':target, 'label':label}
+                }
+            else:
+                element = {
+                    'data': {'source':source, 'target':target}
+                }
         if not edge_elements:
             edge_elements = [element]
         else:
@@ -319,7 +336,7 @@ def VisualizeAnswerRow(df,selected_rows,elements):
     '''
 
 
-def VisualizePubmedCounts(df,selected_row,count_cols):
+def VisualizePubmedCounts(df,selected_rows,elements):
     cols = df.columns
     node_cols = []
     edge_cols = []
