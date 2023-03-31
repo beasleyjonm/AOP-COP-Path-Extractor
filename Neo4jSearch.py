@@ -177,9 +177,9 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                     query = query + f"(n{i}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
         
                 if options[p][i-1] != "wildcard":
-                    options = processInputText(options[p][i-1])
-                    any_options = [x for x in options if x[0:2] != "!="]
-                    not_options = [x.replace("!=","") for x in options if x[0:2] == "!="]
+                    options_list = processInputText(options[p][i-1])
+                    any_options = [x for x in options_list if x[0:2] != "!="]
+                    not_options = [x.replace("!=","") for x in options_list if x[0:2] == "!="]
                     if len(any_options) > 0:
                         if ":" in str(any_options):
                             where_options = where_options + f"any(x IN {str(any_options)} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) "
