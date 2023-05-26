@@ -1,0 +1,15 @@
+#python 3.11.3
+pandas 2.0.1
+numpy 1.24.3
+dash 2.10.0
+dash_daq 0.5.0
+dash_bootstrap_components 1.4.1
+dash_cytoscape 0.3.0
+requests 2.31.0
+networkx 3.1
+py2neo 2021.2.3
+neo4j 5.8.1
+matplotlib 3.7.1
+distinctipy 1.2.2
+scikit-learn 1.2.2
+datetime 5.1
