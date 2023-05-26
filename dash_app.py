@@ -13,6 +13,7 @@ from dash.dependencies import Output, Input, State
 import requests as rq
 import xml.etree.cElementTree as ElementTree
 import time
+from datetime import datetime
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
 from Neo4jSearch import DisplayQuery
@@ -147,7 +148,7 @@ for i in range(1,11):
             ],
             id="node-div-{}".format(str(i)+"-"+str(k)),
             className='dropdownbox',
-            style={'display':('block' if k<3 else 'None')}
+            style={'display':('block' if k<2 else 'None')}
         )
         k_drop.append(drop)
     all_k_drops.append(k_drop)
@@ -180,7 +181,7 @@ for i in range(1,11):
        id="k-select-%i" % i ,
        min=0,
        max=5,
-       value=2
+       value=1
     ) 
     all_k_selects.append(k_select)
 print(len(all_k_selects))
@@ -188,56 +189,7 @@ starts = html.Div([
     html.Div(html.B(children='Starting Points:')),
     dcc.Textarea(
         id='starts',
-        value=
-'''ADUCANUMAB
-Donepezil
-Galantamine
-Epicriptine
-Acetyl-L-carnitine
-Ipidacrine
-Memantine
-Rivastigmine
-Tacrine
-Raloxifene
-Cadmium
-Aluminum
-Copper
-pesticide
-Perfluorooctanoic acid
-Diphenhydramine
-Chlorpheniramine
-Cetirizine
-Lorazepam
-Diazepam
-Temazepam
-Clonazepam
-Benztropine
-Tolterodine
-Dicyclomine
-Fluoxetine
-Sertraline
-Citalopram
-Escitalopram
-Levodopa 
-Amantadine
-Tolcapone
-Warfarin
-Atenolol
-Metoprolol
-Busulfan
-Cytarabine
-Prednisone
-Cortisone acetate
-Methylprednisolone
-Oxycodone
-Morphine 
-Codeine
-Pentobarbital
-Mephobarbital
-Atorvastatin
-Simvastatin
-Rosuvastatin
-''', #Causitive drugs taken from: https://www.brightfocus.org/alzheimers/article/is-it-something-im-taking-medications-that-can-mimic-dementia
+        value='''Sirolimus''', #Causitive drugs taken from: https://www.brightfocus.org/alzheimers/article/is-it-something-im-taking-medications-that-can-mimic-dementia
         placeholder="Leave blank to include *any* start entities...",
         spellCheck="false",
         className='searchTerms'
@@ -247,7 +199,7 @@ ends = html.Div([
     html.Div(html.B(children='Ending Points:\n')),
     dcc.Textarea(
         id='ends',
-        value='''Alzheimer disease''',
+        value='''Castleman disease''',
         placeholder="Leave blank to include *any* end entities...",
         spellCheck="false",
         className='searchTerms'
@@ -348,7 +300,27 @@ for j in range(10):
         #style={'width': '100em'},
         id="node-edge-div-%i" % (j+1))
     all_node_edge_divs.append(node_edge_div)
-    
+
+#Create a dropdown to load example queries
+example_queries = html.Div([
+    dcc.Dropdown(
+        id="example-query-dropdown",
+        options=[
+        {'label':"What is the simple mechanism of action of Drug X for treating Disease Y?", 'value':"DrugX-Gene-DiseaseY.pickle"},
+        {'label':"Which Genes have a Sequence Variant associated with Disease X?", 'value':"Gene-SeqVariant-DiseaseX.pickle"}
+        ],
+        value=None,
+        placeholder='Select an example query pattern...',
+        multi=False
+        )],
+        id="example-query-div",
+        className='dropdownbox',
+        style={'width':'40em', 'margin-bottom':'2em','line-height':'2em','font-size':'80%'}
+    )
+
+#Create a Store object to save when a callback was last triggered
+last_callback = dcc.Store(id='last-callback',storage_type='session',data={"timestamp": datetime.now().timestamp()}),
+
 #Create tables for results
 answer_table = html.Div(id='answer-table', style={'color': colors['text']})
 
@@ -520,6 +492,7 @@ default_stylesheet = [
 elements = []
 app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'column','align-items':'center','justify-content':'center','background-color': colors['background'], 'color': colors['text']}, 
     children=[
+        html.Div(last_callback,style={'display':'None'}),
         html.H1(children=[
             html.Div("",style={'height':'2em','width':'2em','padding-left':'2em'}),
             html.Div([
@@ -528,24 +501,30 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
                 html.Div('Extracting, Exploring and Embedding Pathways Leading to Actionable Research',style={'font-size':'20px'})]),
             html.A(children=html.Img(src='/assets/github_icon_blue.png',style={'height':'2em','width':'2em'}),href='https://github.com/beasleyjonm/AOP-COP-Path-Extractor',target='_blank',rel='noopener noreferrer',style={'padding-right':'2em'})],
             style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'space-between','padding':'1em',"color":"white",'background-color':'rgb(10, 24, 53)','width':'100%'}),
-        html.Div([
-
-        
-            html.Div(children=[
-                        #html.Tr(children=['(1) Select a biomedical knowledge graph source.']),
-                        html.H1(children='Knowledge Graph:'),
-                        kg_dropdown],
-                        style={'padding-bottom':'1em','width':'20em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
-            html.Div(children=[
-                        pattern_select,
-                        edge_checkbox,
-                        metadata_checkbox],
-                        # html.Td(children=[pattern_select]),
-                        # html.Td(children=[query_clipboard]),
-                        # html.Td(edge_checkbox, style={'vertical-align':'bottom'}),
-                        # html.Td(metadata_checkbox, style={'vertical-align':'bottom'})],
-                        style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})],
-            style={'background-color':'whitesmoke','display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),
+        html.Tr([
+            html.Div(
+                [
+                html.Div(children=[
+                            #html.Tr(children=['(1) Select a biomedical knowledge graph source.']),
+                            html.H1(children='Knowledge Graph:'),
+                            kg_dropdown],
+                            style={'padding-bottom':'1em','width':'20em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center'}),
+                html.Div(children=[
+                            pattern_select,
+                            edge_checkbox,
+                            metadata_checkbox],
+                            # html.Td(children=[pattern_select]),
+                            # html.Td(children=[query_clipboard]),
+                            # html.Td(edge_checkbox, style={'vertical-align':'bottom'}),
+                            # html.Td(metadata_checkbox, style={'vertical-align':'bottom'})],
+                            style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})
+                ],
+                style={'background-color':'whitesmoke','display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}
+            ),
+            html.Div(
+                example_queries,
+                style={'background-color':'whitesmoke','display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})
+        ]),
         html.Div(style={'padding-bottom':'3em','vertical-align':'top'},
             children=[
                 # html.Div(children=[
@@ -698,7 +677,7 @@ def checkToBool(show_edge):
     else: return False
     
 @app.callback(Output('neo4j-link','href'),Output("source-dropdown",'value'),Output("source-dropdown",'options'),Output("tail-dropdown",'value'),Output("tail-dropdown",'options'),
-    Output("node-dropdown-1-1",'options'),Output("node-dropdown-1-2",'options'),Output("node-dropdown-1-3",'options'),Output("node-dropdown-1-4",'options'),Output("node-dropdown-1-5",'options'),
+    Output("node-dropdown-1-1",'options'),Output("node-dropdown-1-1",'value'),Output("node-dropdown-1-2",'options'),Output("node-dropdown-1-3",'options'),Output("node-dropdown-1-4",'options'),Output("node-dropdown-1-5",'options'),
     Output("node-dropdown-2-1",'options'),Output("node-dropdown-2-2",'options'),Output("node-dropdown-2-3",'options'),Output("node-dropdown-2-4",'options'),Output("node-dropdown-2-5",'options'),
     Output("node-dropdown-3-1",'options'),Output("node-dropdown-3-2",'options'),Output("node-dropdown-3-3",'options'),Output("node-dropdown-3-4",'options'),Output("node-dropdown-3-5",'options'),
     Output("node-dropdown-4-1",'options'),Output("node-dropdown-4-2",'options'),Output("node-dropdown-4-3",'options'),Output("node-dropdown-4-4",'options'),Output("node-dropdown-4-5",'options'),
@@ -719,11 +698,19 @@ def checkToBool(show_edge):
     Output("edge-dropdown-9-1",'options'),Output("edge-dropdown-9-2",'options'),Output("edge-dropdown-9-3",'options'),Output("edge-dropdown-9-4",'options'),Output("edge-dropdown-9-5",'options'),
     Output("edge-dropdown-10-1",'options'),Output("edge-dropdown-10-2",'options'),Output("edge-dropdown-10-3",'options'),Output("edge-dropdown-10-4",'options'),Output("edge-dropdown-10-5",'options'),
     Output("tail-edge",'options'), 
-    Input("kg-dropdown", 'value')
+    Input("kg-dropdown", 'value'),
+    State("last-callback","data")
 )
-def UpdateNodeAndEdgeLabels(graph_db):
+def UpdateNodeAndEdgeLabels(graph_db,last_callback_data):
+    timestamp=datetime.now().timestamp()
+    last_call_time = last_callback_data["timestamp"]
+    delta_time = timestamp-last_call_time
+    print(delta_time)
+    if delta_time < 2:
+        raise dash.exceptions.PreventUpdate
     if graph_db == "ROBOKOP":
         starter = "biolink:ChemicalEntity"
+        intermediate = "biolink:Gene"
         ender = "biolink:DiseaseOrPhenotypicFeature"
         link = "http://robokopkg.renci.org/browser/"
     elif graph_db == "YOBOKOP":
@@ -751,7 +738,7 @@ def UpdateNodeAndEdgeLabels(graph_db):
     edge_options = [{'label':x.replace("biolink:",""), 'value':x} for x in rk_edges]
 
     return (link,starter,node_options,ender,
-    node_options,node_options,node_options,node_options,
+    node_options,node_options,intermediate,node_options,node_options,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
     node_options,node_options,node_options,node_options,
@@ -1480,25 +1467,61 @@ def UpdateAnswers(protein_names_clicks,triangulator_clicks,answer_datatable,sele
     Input("btn_csv", "n_clicks"),
     State("app-layout", "children"),
     State("settings_name","value"),
+    State("last-callback","data"),
     prevent_initial_call=True)
-def save(n_clicks, layout_state, fname):
+def save(n_clicks, layout_state, fname, last_callback_data):
+    timestamp=datetime.now().timestamp()
+    last_call_time = last_callback_data["timestamp"]
+    delta_time = timestamp-last_call_time
+    print(delta_time)
+    if delta_time < 2:
+        raise dash.exceptions.PreventUpdate
     if n_clicks is not None and n_clicks>0:
         pickle.dump(layout_state, open(f"{fname}.pickle", "wb"))
-    return dcc.send_file(f"{fname}.pickle")
+        return dcc.send_file(f"{fname}.pickle")
+    else:
+        raise dash.exceptions.PreventUpdate
+    #return dcc.send_file(f"{fname}.pickle")
 
 @app.callback(
-    Output("app-layout", "children"),
-    Input('upload-data', 'contents'),
+    Output("app-layout", "children"),Output("last-callback","data"),
+    [Input('upload-data', 'contents'),Input("example-query-dropdown", "value")],
     State('upload-data', 'filename'),
     prevent_initial_call=True)
-def load(contents,fname):
-    print(fname)
-    content_type, content_string = contents.split(',')
-    print(content_type)
-    decoded = base64.b64decode(content_string)
-    layout_state = pickle.load(io.BytesIO(decoded))
-    return layout_state
+def load(contents,example_name,fname):
+    input_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    print(input_id)
+    if input_id == 'upload-data':
+        print(fname)
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        layout_state = pickle.load(io.BytesIO(decoded))
+        print(content_type)
+        timestamp={"timestamp": datetime.now().timestamp()}
+    elif input_id == 'example-query-dropdown':
+        print(example_name)
+        filepath = f"AOP-COP-Path-Extractor/assets/example_queries/{example_name}"
+        file = open(filepath,"rb")
+            #content_type, content_string = fp.split(',')
+            #decoded = base64.b64decode(fp)
+        #content_type, content_string = file.split(',')
+        layout_state = pickle.load(file)
+        file.close()
+        timestamp={"timestamp": datetime.now().timestamp()}
+    return layout_state,timestamp
 
+# @app.callback(
+#     Output("app-layout", "children"),
+#     Input("example-query-dropdown", "options"),
+#     prevent_initial_call=True)
+# def load_example_queries(example_name):
+#     print(example_name)
+#     file = f"/assets/example_queries/{example_name}"
+#     content_type, content_string = file.split(',')
+#     print(content_type)
+#     decoded = base64.b64decode(content_string)
+#     layout_state = pickle.load(io.BytesIO(decoded))
+#     return layout_state
 
  #############################################################    
 
