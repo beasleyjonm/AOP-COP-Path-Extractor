@@ -453,8 +453,86 @@ def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_result
 
     neo4j_query = neo4j_query + display_where_options + f"RETURN * LIMIT {limit_results}"
     print(neo4j_query)
-    
+
     return neo4j_query
+
+#Function to test if a given query will return ANY paths (at least 1)
+def TestQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,start_end_matching=False):
+    if graph_db == "ROBOKOP":
+        link = "neo4j://robokopkg.renci.org"
+    elif graph_db == "YOBOKOP":
+        link = "neo4j://yobokop-neo4j.apps.renci.org"
+    elif graph_db == "HetioNet":
+        link = "bolt://neo4j.het.io"
+    elif graph_db == "SCENT-KOP":
+        link = "bolt://scentkop.apps.renci.org"
+    elif graph_db == "ComptoxAI":
+        link = "bolt://neo4j.comptox.ai:7687"
+    try:
+        if graph_db == "YOBOKOP":
+            G = neo4j.GraphDatabase.driver(link, auth=("neo4j", "ncatgamma"))
+        else:
+            G = neo4j.GraphDatabase.driver(link)
+    except:
+        result=['No Results: Connection Broken']
+        return (result)
+    
+    neo4j_query = "MATCH "
+    test_where_options = "WHERE "
+    p_num = 0
+   
+    for p in nodes:
+        test_query = ""
+        k = len(nodes[p])
+        for i in range(k):
+            if i==0:
+                test_query = test_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+
+            elif i>0 and i<(k-1):
+                test_query = test_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
+
+                if options[p][i-1] != "wildcard":
+                    if ":" in options[p][i-1]:
+                        test_where_options = test_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
+                    else:
+                        test_where_options = test_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+            else:
+                test_query = test_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
+
+        if start_end_matching == False:
+            if "wildcard" in start_nodes and "wildcard" in end_nodes:
+                continue
+            elif "wildcard" in start_nodes:
+                if ":" in str(end_nodes):
+                    test_where_options = test_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
+                else:
+                    test_where_options = test_where_options + f"n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+                    
+            elif "wildcard" in end_nodes:
+                if ":" in str(start_nodes):
+                    test_where_options = test_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
+                else:
+                    test_where_options = test_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
+                
+            else:
+                if ":" in str(start_nodes)+str(end_nodes):
+                    test_where_options = test_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "     
+                else:
+                    test_where_options = test_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
+            
+            if p_num < len(nodes)-1:
+                test_where_options = test_where_options + "AND "
+                                           
+        print(test_query)
+        neo4j_query = f"{neo4j_query}{test_query}{' ' if p_num == (len(nodes)-1) else ', '}"
+        p_num += 1
+
+    neo4j_query = neo4j_query + test_where_options + f"RETURN count(*)"
+    session = G.session()#.data()
+    matches = run_query(session,neo4j_query)
+    any_matches = int(str([m for m in matches][0]).replace('<Record count(*)=','').replace('>',''))
+    
+    return any_matches
 
 def getNodeAndEdgeLabels(graph_db):
     qualified_predicates=[

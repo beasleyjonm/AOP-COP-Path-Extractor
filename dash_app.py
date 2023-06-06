@@ -17,6 +17,7 @@ from datetime import datetime
 from networkx.drawing.nx_pydot import graphviz_layout
 from Neo4jSearch import Graphsearch
 from Neo4jSearch import DisplayQuery
+from Neo4jSearch import TestQuery
 from Neo4jSearch import getNodeAndEdgeLabels
 from Neo4jSearch import checkNodeNameID
 import VisualizePaths
@@ -307,7 +308,8 @@ example_queries = html.Div([
         id="example-query-dropdown",
         options=[
         {'label':"What is the simple mechanism of action of Drug X for treating Disease Y?", 'value':"DrugX-Gene-DiseaseY.pickle"},
-        {'label':"Which Genes have a Sequence Variant associated with Disease X?", 'value':"Gene-SeqVariant-DiseaseX.pickle"}
+        {'label':"Which Genes have a Sequence Variant associated with Disease X?", 'value':"Gene-SeqVariant-DiseaseX.pickle"},
+        {'label':"What are the Biological Process and Molecular Activities shared between Genes X and Y?", 'value':"GeneX-BioProcessOrActivity-GeneY.pickle"}
         ],
         value=None,
         placeholder='Select an example query pattern...',
@@ -352,7 +354,16 @@ subgraph_fig = html.Img(id='subgraph-fig')
 
 #Display Random Forest Cross Validation Stats
 rf_5FCV_fig = html.Img(id='rf-5FCV-fig', style={'width':'30%','height':'30%'})
-
+#Create loading icons for testing the query patterns
+loading_tests = []
+for j in range(10):
+    load_test =  dcc.Loading(
+        id='loading-query-%i' % (j+1),
+        type="default",
+        color=colors['text'],
+        children=html.Div(id='loading-output-query-%i' % (j+1))
+    )
+    loading_tests.append(load_test)
 #Create selector element to specify graph search queries.
 selector = []
 for j in range(10):
@@ -361,6 +372,7 @@ for j in range(10):
         style={'display':('None' if j != 0 else 'block')},
         children=[
             html.Div(children=[
+                html.Td(loading_tests[j],style={'padding-right':'2em','vertical-align':'top'}),
                 html.Td(children=[html.Tr(children='Pattern Name:'),pattern_name_boxes[j]], style={'padding-right':'1em','vertical-align':'top'}),
                 html.Td(children=[html.Tr(children='Length:'),all_k_selects[j]], style={'vertical-align':'top'})],
                 style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'}),   
@@ -1474,21 +1486,28 @@ def save(n_clicks, layout_state, fname, last_callback_data):
     last_call_time = last_callback_data["timestamp"]
     delta_time = timestamp-last_call_time
     print(delta_time)
-    if delta_time < 2:
+    if delta_time < 1:
         raise dash.exceptions.PreventUpdate
-    if n_clicks is not None and n_clicks>0:
+    if n_clicks>0:
+        if delta_time < 1:
+            raise dash.exceptions.PreventUpdate
         pickle.dump(layout_state, open(f"{fname}.pickle", "wb"))
         return dcc.send_file(f"{fname}.pickle")
     else:
         raise dash.exceptions.PreventUpdate
-    #return dcc.send_file(f"{fname}.pickle")
 
 @app.callback(
     Output("app-layout", "children"),Output("last-callback","data"),
     [Input('upload-data', 'contents'),Input("example-query-dropdown", "value")],
-    State('upload-data', 'filename'),
+    State('upload-data', 'filename'),State("last-callback","data"),
     prevent_initial_call=True)
-def load(contents,example_name,fname):
+def load(contents,example_name,fname,last_callback_data):
+    timestamp=datetime.now().timestamp()
+    last_call_time = last_callback_data["timestamp"]
+    delta_time = timestamp-last_call_time
+    print(delta_time)
+    if delta_time < 1:
+        raise dash.exceptions.PreventUpdate
     input_id = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     print(input_id)
     if input_id == 'upload-data':
@@ -1507,21 +1526,95 @@ def load(contents,example_name,fname):
         #content_type, content_string = file.split(',')
         layout_state = pickle.load(file)
         file.close()
+        # The following line is necessary to prevent the dcc.Download from triggering upon reloading the app.
+        # It replaces the contents of the Download with a NoneType object.
+        #print(layout_state[4]['props']['children'][2]['props']['children'][0]['props']['children'][2])#['data']['content'])
+        try:
+            layout_state[4]['props']['children'][2]['props']['children'][0]['props']['children'][2]['props']['data']['content'] = None
+        except:
+            pass
+        # for key,val in layout_state[4]['props']['children'][2]['props']['children'][0]['props']['children'][2]['props']['data'].items():
+        #     print(key)
+        #print(layout_state[5]['props']['children'][2]['props']['children'][0]['props']['children'][2]['props']['data']['content'])
         timestamp={"timestamp": datetime.now().timestamp()}
     return layout_state,timestamp
 
-# @app.callback(
-#     Output("app-layout", "children"),
-#     Input("example-query-dropdown", "options"),
-#     prevent_initial_call=True)
-# def load_example_queries(example_name):
-#     print(example_name)
-#     file = f"/assets/example_queries/{example_name}"
-#     content_type, content_string = file.split(',')
-#     print(content_type)
-#     decoded = base64.b64decode(content_string)
-#     layout_state = pickle.load(io.BytesIO(decoded))
-#     return layout_state
+@app.callback(
+    Output('loading-query-1', 'children'),
+    Input("node-dropdown-1-1", 'value'),Input("node-dropdown-1-2", 'value'),Input("node-dropdown-1-3", 'value'),
+    Input("node-dropdown-1-4", 'value'),Input("node-dropdown-1-5", 'value'),
+    Input("node-options-1-1", 'value'),Input("node-options-1-2", 'value'),Input("node-options-1-3", 'value'),
+    Input("node-options-1-4", 'value'),Input("node-options-1-5", 'value'),
+    Input("edge-dropdown-1-1", 'value'),Input("edge-dropdown-1-2", 'value'),Input("edge-dropdown-1-3", 'value'),
+    Input("edge-dropdown-1-4", 'value'),Input("edge-dropdown-1-5", 'value'),
+    Input('starts', 'value'),Input('ends','value'),
+    Input("source-dropdown", 'value'),Input("tail-dropdown", 'value'),Input('tail-edge','value'),Input('k-select-1', 'value'),
+    State("kg-dropdown", 'value'),State('edge-checkbox', 'value'),State('metadata-checkbox', 'value'),
+    prevent_initial_call=True)
+def test_path_search(
+        k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes,
+        k1_1_options,k1_2_options,k1_3_options,k1_4_options,k1_5_options,
+        k1_1_edges,k1_2_edges,k1_3_edges,k1_4_edges,k1_5_edges,
+        start_node_text,end_node_text,s,t,t_edges,k_val_1,
+        graph_db,show_edges,get_metadata):
+    
+    all_k_nodes=[k1_1_nodes,k1_2_nodes,k1_3_nodes,k1_4_nodes,k1_5_nodes]
+    all_k_options=[k1_1_options,k1_2_options,k1_3_options,k1_4_options,k1_5_options]
+    all_k_edges=[k1_1_edges,k1_2_edges,k1_3_edges,k1_4_edges,k1_5_edges]
+    k_values=k_val_1
+    edges_bool = checkToBool(show_edges)
+    start_nodes = processInputText(start_node_text)
+    if start_nodes==[]:
+        start_nodes=["wildcard"]
+    end_nodes = processInputText(end_node_text)
+    if end_nodes==[]:
+        end_nodes=["wildcard"]
+    searched_nodes_dict = {}
+    searched_options_dict = {}
+    searched_edges_dict = {}
+    
+    k_nodes = [f"{s}",f"{all_k_nodes[0]}",f"{all_k_nodes[1]}",f"{all_k_nodes[2]}",f"{all_k_nodes[3]}",f"{all_k_nodes[4]}",f"{t}"]
+    wildcarded_k_nodes = ['wildcard' if x == "None" else x for x in k_nodes]
+    clean_k_nodes = ['`'+x+'`' if 'biolink' in x else x for x in wildcarded_k_nodes]
+    searched_nodes = {"pattern-1":clean_k_nodes[:k_values+1]+[clean_k_nodes[-1]]}
+    #print(searched_nodes)
+    searched_nodes_dict.update(searched_nodes)
+
+    if len("".join(all_k_options)) > 0:
+        k_options = [f"{all_k_options[0]}",f"{all_k_options[1]}",f"{all_k_options[2]}",f"{all_k_options[3]}",f"{all_k_options[4]}"]
+        wildcarded_k_options = ['wildcard' if x == "" else x for x in k_options]
+        clean_k_options = wildcarded_k_options
+    else:
+        clean_k_options = ['wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard']
+    searched_options={"pattern-1":clean_k_options[:k_values]+[clean_k_options[-1]]}
+    #print(searched_options)
+    searched_options_dict.update(searched_options)
+
+    if edges_bool == True:
+        k_edges = [f"{all_k_edges[0]}",f"{all_k_edges[1]}",f"{all_k_edges[2]}",f"{all_k_edges[3]}",f"{all_k_edges[4]}",f"{t_edges}"]
+        wildcarded_k_edges = ['wildcard' if x == "None" else x for x in k_edges]
+        clean_k_edges = ['`'+x+'`' if 'biolink' in x else x for x in wildcarded_k_edges]
+    else:
+        clean_k_edges = ['wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard', 'wildcard']
+    searched_edges={"pattern-1":clean_k_edges[:k_values]+[clean_k_edges[-1]]}
+    #print(searched_edges)
+    searched_edges_dict.update(searched_edges)
+
+    # if len(get_metadata) > 0:
+    #     metadata_bool = get_metadata[0]
+    # else: 
+    #     metadata_bool = False
+
+    any_paths = TestQuery(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,start_end_matching=False)
+    print(any_paths)
+    if any_paths == None:
+        print("Path not found")
+        return f"Found 0 paths. Please revise query."
+    elif any_paths > 0:
+        return f"Found {str(any_paths)} paths!"
+    else:
+        print("Path not found")
+        return f"Found 0 paths. Please revise query."
 
  #############################################################    
 
