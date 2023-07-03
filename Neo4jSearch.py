@@ -28,13 +28,31 @@ def get_cmap(n, name='hsv'):
     RGB color; the keyword argument name must be a standard mpl colormap name.'''
     return cm.get_cmap(name, n)
 
-def processInputText(text):
+def processInputText(text,lower=True):
     l1 = []
     for line in text.split('\n'):
         a = line
         if a != "":
-            l1.append(a.strip())
+            if lower == True:
+                l1.append(a.strip().lower())
+            else:
+                l1.append(a.strip())
     return l1
+
+def listToString(s,separator="\n"):
+ 
+    # initialize an empty string
+    str1 = ""
+ 
+    # traverse in the string
+    for ele in s:
+        if ele == s[-1]:
+            str1 += ele
+        else:
+            str1 += ele+separator
+ 
+    # return string
+    return str1
 
 #@unit_of_work(timeout=1.0)
 def run_query(tx,q):
@@ -138,7 +156,6 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
 
     for p in nodes:
         query = f"MATCH "
-        #display_query = ""
         k = len(nodes[p])
         robokop_output = {}
         where_options = "WHERE "
@@ -182,17 +199,17 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                     not_options = [x.replace("!=","") for x in options_list if x[0:2] == "!="]
                     if len(any_options) > 0:
                         if ":" in str(any_options):
-                            where_options = where_options + f"any(x IN {str(any_options)} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) "
+                            where_options = where_options + f"any(x IN {str(any_options)} WHERE x IN reduce(list = [], n IN n{i}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                         else:
-                            where_options = where_options + f"n{i}.{KGNameIDProps[graph_db][0]} IN {str(any_options)} "
+                            where_options = where_options + f"toLower(n{i}.{KGNameIDProps[graph_db][0]}) IN {str(any_options)} "
                     
                     if len(not_options) > 0:
                         if len(any_options) > 0:
                             where_options = where_options + "AND "
                         if ":" in str(not_options):
-                            where_options = where_options + f"none(x IN {str(not_options)} WHERE x IN n{i}.{KGNameIDProps[graph_db][0]} OR x IN n{i}.{KGNameIDProps[graph_db][2]}) "
+                            where_options = where_options + f"none(x IN {str(not_options)} WHERE x IN reduce(list = [], n IN n{i}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                         else:
-                            where_options = where_options + f"NOT n{i}.{KGNameIDProps[graph_db][0]} IN {str(not_options)} "
+                            where_options = where_options + f"NOT toLower(n{i}.{KGNameIDProps[graph_db][0]}) IN {str(not_options)} "
 
             else:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
@@ -216,34 +233,34 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
                 if len(any_ends) > 0:
                     if ":" in str(any_ends):
-                        que = que + f"any(x IN {str(any_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "               
+                        que = que + f"any(x IN {str(any_ends)} WHERE x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
                     else:
-                        que = que + f"n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(any_ends)} "
+                        que = que + f"toLower(n{k-1}.{KGNameIDProps[graph_db][0]}) IN {str(any_ends)} "
 
                 if len(not_ends) > 0:
                     if len(any_ends) > 0:
                         que = que + "AND "
                     if ":" in str(not_ends):
-                        que = que + f"none(x IN {str(not_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "               
+                        que = que + f"none(x IN {str(not_ends)} WHERE x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
                     else:
-                        que = que + f"NOT n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(not_ends)} "
+                        que = que + f"NOT toLower(n{k-1}.{KGNameIDProps[graph_db][0]}) IN {str(not_ends)} "
 
             elif "wildcard" in end_nodes:
                 any_starts = [x for x in start_nodes if  x[0:2] != "!="]
                 not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
                 if len(any_starts) > 0:
                     if ":" in str(any_starts):
-                        que = que + f"any(x IN {str(any_starts)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) "
+                        que = que + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                     else:
-                        que = que + f"n{0}.{KGNameIDProps[graph_db][0]} IN {str(any_starts)} "
+                        que = que + f"toLower(n{0}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
 
                 if len(not_starts) > 0:
                     if len(any_starts) > 0:
                         que = que + "AND "
                     if ":" in str(not_starts):
-                        que = que + f"none(x IN {str(not_starts)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "               
+                        que = que + f"none(x IN {str(not_starts)} WHERE x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
                     else:
-                        que = que + f"NOT n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(not_starts)} "
+                        que = que + f"NOT toLower(n{k-1}.{KGNameIDProps[graph_db][0]}) IN {str(not_starts)} "
 
             else:
                 any_ends = [x for x in end_nodes if  x[0:2] != "!="]
@@ -252,32 +269,32 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                 not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
                 if len(any_starts) > 0:
                     if ":" in str(any_starts):
-                        que = que + f"any(x IN {str(any_starts)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) " 
+                        que = que + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) " 
                     else:
-                        que = que + f"n{0}.{KGNameIDProps[graph_db][0]} IN {str(any_starts)} "
+                        que = que + f"toLower(n{0}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
                 if len(any_ends) > 0:
                     if len(any_starts) > 0:
                         que = que + "AND "
                     if ":" in str(any_ends):
-                        que = que + f"any(x IN {str(any_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+                        que = que + f"any(x IN {str(any_ends)} WHERE x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                     else:
-                        que = que + f"n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(any_ends)} "
+                        que = que + f"toLower(n{k-1}.{KGNameIDProps[graph_db][0]}) IN {str(any_ends)} "
 
                 if len(not_starts) > 0:
                     if len(any_starts)+len(any_ends) > 0:
                         que = que + "AND "
                     if ":" in str(not_starts):
-                        que = que + f"none(x IN {str(not_starts)} WHERE x IN n{0}.{KGNameIDProps[graph_db][0]} OR x IN n{0}.{KGNameIDProps[graph_db][2]}) " 
+                        que = que + f"none(x IN {str(not_starts)} WHERE x IN reduce(list = [], n IN n{0}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) " 
                     else:
-                        que = que + f"NOT n{0}.{KGNameIDProps[graph_db][0]} IN {str(not_starts)} "
+                        que = que + f"NOT toLower(n{0}.{KGNameIDProps[graph_db][0]}) IN {str(not_starts)} "
                 
                 if len(not_ends) > 0:
                     if len(any_starts)+len(any_ends)+len(not_starts) > 0:
                         que = que + "AND "
                     if ":" in str(not_ends):
-                        que = que + f"none(x IN {str(not_ends)} WHERE x IN n{k-1}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}.{KGNameIDProps[graph_db][2]}) "
+                        que = que + f"none(x IN {str(not_ends)} WHERE x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                     else:
-                        que = que + f"NOT n{k-1}.{KGNameIDProps[graph_db][0]} IN {str(not_ends)} "
+                        que = que + f"NOT toLower(n{k-1}.{KGNameIDProps[graph_db][0]}) IN {str(not_ends)} "
                   
             q = que
                                  
@@ -414,36 +431,101 @@ def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_result
 
             elif i>0 and i<(k-1):
                 display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
-
                 if options[p][i-1] != "wildcard":
-                    if ":" in options[p][i-1]:
-                        display_where_options = display_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
-                    else:
-                        display_where_options = display_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+                    options_list = processInputText(options[p][i-1])
+                    any_options = [x for x in options_list if x[0:2] != "!="]
+                    not_options = [x.replace("!=","") for x in options_list if x[0:2] == "!="]
+                    if len(any_options) > 0:
+                        if ":" in str(any_options):
+                            display_where_options = display_where_options + f"any(x IN {str(any_options)} WHERE x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                        else:
+                            display_where_options = display_where_options + f"toLower(n{i}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_options)} "
+                    
+                    if len(not_options) > 0:
+                        if len(any_options) > 0:
+                            display_where_options = display_where_options + "AND "
+                        if ":" in str(not_options):
+                            display_where_options = display_where_options + f"none(x IN {str(not_options)} WHERE x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                        else:
+                            display_where_options = display_where_options + f"NOT toLower(n{i}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_options)} "
+
             else:
                 display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
+        
+        if len(display_where_options)>6:
+            display_where_options = display_where_options + "AND "
 
         if start_end_matching == False:
             if "wildcard" in start_nodes and "wildcard" in end_nodes:
                 continue
             elif "wildcard" in start_nodes:
-                if ":" in str(end_nodes):
-                    display_where_options = display_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                else:
-                    display_where_options = display_where_options + f"n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-                    
+                any_ends = [x for x in end_nodes if  x[0:2] != "!="]
+                not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
+                if len(any_ends) > 0:
+                    if ":" in str(any_ends):
+                        display_where_options = display_where_options + f"any(x IN {str(any_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
+                    else:
+                        display_where_options = display_where_options + f"toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_ends)} "
+
+                if len(not_ends) > 0:
+                    if len(any_ends) > 0:
+                        display_where_options = display_where_options + "AND "
+                    if ":" in str(not_ends):
+                        display_where_options = display_where_options + f"none(x IN {str(not_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
+                    else:
+                        display_where_options = display_where_options + f"NOT toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_ends)} "
+
             elif "wildcard" in end_nodes:
-                if ":" in str(start_nodes):
-                    display_where_options = display_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                else:
-                    display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
-                
+                any_starts = [x for x in start_nodes if  x[0:2] != "!="]
+                not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
+                if len(any_starts) > 0:
+                    if ":" in str(any_starts):
+                        display_where_options = display_where_options + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                    else:
+                        display_where_options = display_where_options + f"toLower(n{0}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
+
+                if len(not_starts) > 0:
+                    if len(any_starts) > 0:
+                        display_where_options = display_where_options + "AND "
+                    if ":" in str(not_starts):
+                        display_where_options = display_where_options + f"none(x IN {str(not_starts)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
+                    else:
+                        display_where_options = display_where_options + f"NOT toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_starts)} "
+
             else:
-                if ":" in str(start_nodes)+str(end_nodes):
-                    display_where_options = display_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "     
-                else:
-                    display_where_options = display_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-            
+                any_ends = [x for x in end_nodes if  x[0:2] != "!="]
+                not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
+                any_starts = [x for x in start_nodes if  x[0:2] != "!="]
+                not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
+                if len(any_starts) > 0:
+                    if ":" in str(any_starts):
+                        display_where_options = display_where_options + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) " 
+                    else:
+                        display_where_options = display_where_options + f"toLower(n{0}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
+                if len(any_ends) > 0:
+                    if len(any_starts) > 0:
+                        display_where_options = display_where_options + "AND "
+                    if ":" in str(any_ends):
+                        display_where_options = display_where_options + f"any(x IN {str(any_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                    else:
+                        display_where_options = display_where_options + f"toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_ends)} "
+
+                if len(not_starts) > 0:
+                    if len(any_starts)+len(any_ends) > 0:
+                        display_where_options = display_where_options + "AND "
+                    if ":" in str(not_starts):
+                        display_where_options = display_where_options + f"none(x IN {str(not_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) " 
+                    else:
+                        display_where_options = display_where_options + f"NOT toLower(n{0}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_starts)} "
+                
+                if len(not_ends) > 0:
+                    if len(any_starts)+len(any_ends)+len(not_starts) > 0:
+                        display_where_options = display_where_options + "AND "
+                    if ":" in str(not_ends):
+                        display_where_options = display_where_options + f"none(x IN {str(not_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                    else:
+                        display_where_options = display_where_options + f"NOT toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_ends)} "
+
             if p_num < len(nodes)-1:
                 display_where_options = display_where_options + "AND "
                                            
@@ -491,35 +573,104 @@ def TestQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,start_end_match
             elif i>0 and i<(k-1):
                 test_query = test_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})-[r{i}_{p_num}{':'+edges[p][i] if 'wildcard' not in edges[p][i] else ''}]-"
 
+
+
+
                 if options[p][i-1] != "wildcard":
-                    if ":" in options[p][i-1]:
-                        test_where_options = test_where_options + f"any(x IN {str(processInputText(options[p][i-1]))} WHERE x IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]}) AND "
-                    else:
-                        test_where_options = test_where_options + f"n{i}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(processInputText(options[p][i-1]))} AND "
+                    options_list = processInputText(options[p][i-1])
+                    any_options = [x for x in options_list if x[0:2] != "!="]
+                    not_options = [x.replace("!=","") for x in options_list if x[0:2] == "!="]
+                    if len(any_options) > 0:
+                        if ":" in str(any_options):
+                            test_where_options = test_where_options + f"any(x IN {str(any_options)} WHERE x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                        else:
+                            test_where_options = test_where_options + f"toLower(n{i}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_options)} "
+                    
+                    if len(not_options) > 0:
+                        if len(any_options) > 0:
+                            test_where_options = test_where_options + "AND "
+                        if ":" in str(not_options):
+                            test_where_options = test_where_options + f"none(x IN {str(not_options)} WHERE x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                        else:
+                            test_where_options = test_where_options + f"NOT toLower(n{i}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_options)} "
+
             else:
                 test_query = test_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
+        
+        if len(test_where_options)>6:
+            test_where_options = test_where_options + "AND "
 
         if start_end_matching == False:
             if "wildcard" in start_nodes and "wildcard" in end_nodes:
                 continue
             elif "wildcard" in start_nodes:
-                if ":" in str(end_nodes):
-                    test_where_options = test_where_options + f"any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                else:
-                    test_where_options = test_where_options + f"n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-                    
+                any_ends = [x for x in end_nodes if  x[0:2] != "!="]
+                not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
+                if len(any_ends) > 0:
+                    if ":" in str(any_ends):
+                        test_where_options = test_where_options + f"any(x IN {str(any_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
+                    else:
+                        test_where_options = test_where_options + f"toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_ends)} "
+
+                if len(not_ends) > 0:
+                    if len(any_ends) > 0:
+                        test_where_options = test_where_options + "AND "
+                    if ":" in str(not_ends):
+                        test_where_options = test_where_options + f"none(x IN {str(not_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
+                    else:
+                        test_where_options = test_where_options + f"NOT toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_ends)} "
+
             elif "wildcard" in end_nodes:
-                if ":" in str(start_nodes):
-                    test_where_options = test_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) "
-                else:
-                    test_where_options = test_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} "
-                
+                any_starts = [x for x in start_nodes if  x[0:2] != "!="]
+                not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
+                if len(any_starts) > 0:
+                    if ":" in str(any_starts):
+                        test_where_options = test_where_options + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                    else:
+                        test_where_options = test_where_options + f"toLower(n{0}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
+
+                if len(not_starts) > 0:
+                    if len(any_starts) > 0:
+                        test_where_options = test_where_options + "AND "
+                    if ":" in str(not_starts):
+                        test_where_options = test_where_options + f"none(x IN {str(not_starts)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "               
+                    else:
+                        test_where_options = test_where_options + f"NOT toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_starts)} "
+
             else:
-                if ":" in str(start_nodes)+str(end_nodes):
-                    test_where_options = test_where_options + f"any(x IN {str(start_nodes)} WHERE x IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]}) AND any(x IN {str(end_nodes)} WHERE x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} OR x IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]}) "     
-                else:
-                    test_where_options = test_where_options + f"n{0}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(start_nodes)} AND n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} IN {str(end_nodes)} "
-            
+                any_ends = [x for x in end_nodes if  x[0:2] != "!="]
+                not_ends = [x.replace("!=","") for x in end_nodes if x[0:2] == "!="]
+                any_starts = [x for x in start_nodes if  x[0:2] != "!="]
+                not_starts = [x.replace("!=","") for x in start_nodes if x[0:2] == "!="]
+                if len(any_starts) > 0:
+                    if ":" in str(any_starts):
+                        test_where_options = test_where_options + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) " 
+                    else:
+                        test_where_options = test_where_options + f"toLower(n{0}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
+                if len(any_ends) > 0:
+                    if len(any_starts) > 0:
+                        test_where_options = test_where_options + "AND "
+                    if ":" in str(any_ends):
+                        test_where_options = test_where_options + f"any(x IN {str(any_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                    else:
+                        test_where_options = test_where_options + f"toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_ends)} "
+
+                if len(not_starts) > 0:
+                    if len(any_starts)+len(any_ends) > 0:
+                        test_where_options = test_where_options + "AND "
+                    if ":" in str(not_starts):
+                        test_where_options = test_where_options + f"none(x IN {str(not_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) " 
+                    else:
+                        test_where_options = test_where_options + f"NOT toLower(n{0}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_starts)} "
+                
+                if len(not_ends) > 0:
+                    if len(any_starts)+len(any_ends)+len(not_starts) > 0:
+                        test_where_options = test_where_options + "AND "
+                    if ":" in str(not_ends):
+                        test_where_options = test_where_options + f"none(x IN {str(not_ends)} WHERE x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{k-1}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
+                    else:
+                        test_where_options = test_where_options + f"NOT toLower(n{k-1}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_ends)} "
+
             if p_num < len(nodes)-1:
                 test_where_options = test_where_options + "AND "
                                            
@@ -527,10 +678,11 @@ def TestQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,start_end_match
         neo4j_query = f"{neo4j_query}{test_query}{' ' if p_num == (len(nodes)-1) else ', '}"
         p_num += 1
 
-    neo4j_query = neo4j_query + test_where_options + f"RETURN count(*)"
+    neo4j_query = neo4j_query + test_where_options + f"RETURN n0_0.id LIMIT 1000"
     session = G.session()#.data()
     matches = run_query(session,neo4j_query)
-    any_matches = int(str([m for m in matches][0]).replace('<Record count(*)=','').replace('>',''))
+    #any_matches = int(str([m for m in matches][0]).replace('<Record count(*)=','').replace('>',''))
+    any_matches = len([m for m in matches])
     
     return any_matches
 
@@ -602,7 +754,7 @@ def getNodeAndEdgeLabels(graph_db):
     return (rk_nodes, rk_edges)
 
 def checkNodeNameID(graph_db, terms, label):
-    terms = processInputText(terms)
+    terms = processInputText(terms,lower=False)
     #ends = processInputText(end_terms)
     if 'biolink' in label:
         Label = f"`{label}`"
@@ -661,16 +813,9 @@ def checkNodeNameID(graph_db, terms, label):
     else:
         query = f"MATCH (n{':'+Label if Label != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) IN [{searched_list}] OR toLower(apoc.text.join(n.{KGNameIDProps[graph_db][2]}, ',')) IN [{searched_list}] RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, n.{KGNameIDProps[graph_db][2]} LIMIT 10000"
     
-    # for term in starts:
-    #     nodes_output = {"search term":[], "node name":[], "node id":[], "node degree":[]}
-    #     if graph_db == "ROBOKOP" or "ComptoxAI":
-    #         query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE apoc.meta.type(n.{KGNameIDProps[graph_db][0]}) = 'STRING' AND toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS \"{term.lower()}\" CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, degree"
-    #     else:
-    #         query = f"MATCH (n{':'+startLabel if startLabel != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS \"{term.lower()}\" RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}"
     matches = G.run(query)
     
     for m in matches:
-        #nodes_output["search term"].append(term)
         nodes_output["node name"].append(m[0])
         nodes_output["node id"].append(m[1])
         nodes_output["node eq id"].append(m[2])
@@ -678,36 +823,44 @@ def checkNodeNameID(graph_db, terms, label):
             nodes_output["node degree"].append(m[3])
         except:
             continue
-    
+
+    lower_node_names = [x.lower() for x in nodes_output["node name"]]
+    lower_node_ids = [x.lower() for x in nodes_output["node name"]]
+    lower_node_eq_ids = [list(map(lambda i:i.lower(), x)) for x in nodes_output["node eq id"]]
+
     for term in terms:
-        if term in nodes_output["node name"]:
-            index = nodes_output["node name"].index(term)
+        lower_term = term.lower()
+        if lower_term in lower_node_names:
+            indices = [i for i,j in enumerate(lower_node_names) if j == lower_term]
+            if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
+                if term in nodes_output['node name']:
+                    message+=f"'{term}' found!\nNode IDs:\n{listToString([nodes_output['node id'][index] for index in indices])}\nNode Degrees: {[nodes_output['node degree'][index] for index in indices]}\n\n"
+                else:
+                    message+=f"'{term}' found as:\n{listToString([nodes_output['node name'][index] for index in indices])}\nNode IDs:\n{listToString([nodes_output['node id'][index] for index in indices])}\nNode Degrees: {[nodes_output['node degree'][index] for index in indices]}\n\n"
+            else:
+                if term in nodes_output['node name']:
+                    message+=f"'{term}' found!\nNode IDs:\n{listToString([nodes_output['node id'][index] for index in indices])}\n\n"
+                else:
+                    message+=f"'{term}' found as:\n{listToString([nodes_output['node name'][index] for index in indices])}\nNode IDs:\n{listToString([nodes_output['node id'][index] for index in indices])}\n\n"
 
+        elif lower_term in lower_node_ids:
+            indices = [i for i,j in enumerate(lower_node_ids) if j == lower_term]
             if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
                 #message+=f"'{term}' found!\n"
-                message+=f"'{term}' found! ID: {nodes_output['node id'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
+                message+=f"'{term}' found!\nNode Names:\n{listToString([nodes_output['node name'][index] for index in indices])}\nNode Degrees: {[nodes_output['node degree'][index] for index in indices]}\n\n"
             else:
                 #message+=f"'{term}' found!\n"
-                message+=f"'{term}' found! ID: {nodes_output['node id'][0]}\n\n"
-
-        elif term in nodes_output["node id"]:
-            index = nodes_output["node id"].index(term)
-            if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
-                #message+=f"'{term}' found!\n"
-                message+=f"'{term}' found! Name: {nodes_output['node name'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
-            else:
-                #message+=f"'{term}' found!\n"
-                message+=f"'{term}' found! Name: {nodes_output['node name'][0]}\n\n"
+                message+=f"'{term}' found!\nNode Names:\n{listToString([nodes_output['node name'][index] for index in indices])}\n\n"
         
-        elif any(term in sublist for sublist in nodes_output["node eq id"]):
-            found_list = [sublist for sublist in nodes_output["node eq id"] if term in sublist][0]
-            index = nodes_output["node eq id"].index(found_list)
+        elif any(lower_term in sublist for sublist in lower_node_eq_ids):
+            found_list = [sublist for sublist in lower_node_eq_ids if lower_term in sublist][0]
+            indices = [i for i,j in enumerate(lower_node_eq_ids) if j == found_list]
             if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
                 #message+=f"'{term}' found!\n"
-                message+=f"'{term}' found! Name: {nodes_output['node name'][index]}, Degree: {nodes_output['node degree'][index]}\n\n"
+                message+=f"'{term}' found!\nNode Names:\n{listToString([nodes_output['node name'][index] for index in indices])}\nNode Degrees: {[nodes_output['node degree'][index] for index in indices]}\n\n"
             else:
                 #message+=f"'{term}' found!\n"
-                message+=f"'{term}' found! Name: {nodes_output['node name'][0]}\n\n"
+                message+=f"'{term}' found!\nNode Names:\n{listToString([nodes_output['node name'][index] for index in indices])}\n\n"
 
         else:
             if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:

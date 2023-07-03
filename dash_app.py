@@ -906,12 +906,15 @@ def hide_elements_edges(show_edge):
 
     return tail_edge_style
 
-def processInputText(text):
+def processInputText(text,lower=True):
     l1 = []
     for line in text.split('\n'):
         a = line
         if a != "":
-            l1.append(a.strip())
+            if lower == True:
+                l1.append(a.strip().lower())
+            else:
+                l1.append(a.strip())
     return l1
 
 @app.callback(
@@ -1074,6 +1077,9 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
                 dash.no_update]
     elif button_id == "submit-val" and submit_clicks:
         print("Running PATH SEARCH!")
@@ -1081,6 +1087,9 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
             ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=120000,limit_results=10000)
         except:
             return [[f"Either no answers were found or query execution time exceeded timeout limit (> 2 minutes). Please revise query patterns and try again."],
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
@@ -1611,7 +1620,10 @@ def test_path_search(
         print("Path not found")
         return f"Found 0 paths. Please revise query."
     elif any_paths > 0:
-        return f"Found {str(any_paths)} paths!"
+        if any_paths == 1000:
+            return f"Found >{str(any_paths)} paths!"
+        else:
+            return f"Found {str(any_paths)} paths!"
     else:
         print("Path not found")
         return f"Found 0 paths. Please revise query."
