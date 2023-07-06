@@ -29,7 +29,12 @@ import pickle
 import io
 import base64
 import PCA
+import flask
 
+#Register pages
+
+# Load extra layouts
+cyto.load_extra_layouts()
 
 app = dash.Dash()
 app.title = 'ExEmPLAR'
@@ -235,6 +240,7 @@ triangulator_button = html.Button('Get PubMed Abstract Co-Mentions', id='submit-
 create_subgraph_fig_button = html.Button('Create Figure from Selected Rows', id='submit-subgraph-fig-val', n_clicks=0, style={"display":'None'})
 subgraph_fig_edge_checkbox = dcc.Checklist(id="subgraph-fig-edge-checkbox",style={"display":'None'}, options=[{"label":"Display/Hide Figure Edge Labels","value":True}],value=[])
 subgraph_fig_pubmed_checkbox = dcc.Checklist(id="subgraph-fig-pubmed-checkbox",style={"display":'None'}, options=[{"label":"Generate Pubmed Co-Mentions in Figure","value":True}],value=[])
+subgraph_fig_allrows_checkbox = dcc.Checklist(id="subgraph-fig-allrows-checkbox",style={"display":'None'}, options=[{"label":"Use All Answer Rows for Figure","value":True}],value=[])
 dwpc_button = html.Button('Compute Degree-Weighted Path Counts', id='submit-dwpc-val', n_clicks=0, style={"display":'None'})
 dwpc_weight = dcc.Input(id="dwpc-weight-select",
                         value=0,
@@ -506,7 +512,8 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
     children=[
         html.Div(last_callback,style={'display':'None'}),
         html.H1(children=[
-            html.Div("",style={'height':'2em','width':'2em','padding-left':'2em'}),
+            #html.Div("",style={'height':'2em','width':'2em','padding-left':'2em'}),
+            html.A(html.Button("User Guide",style={'background-color':'whitesmoke', 'color':'black'}), href="/user_guide", target="_blank"),
             html.Div([
                 'ExEmPLAR',
                 html.Br(),
@@ -598,7 +605,7 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
         )], style={'padding':'2em','display':'flex','flex-direction':'column','align-items':'center','justify-content':'center', 'padding-bottom': '1em','background-color':'whitesmoke','border-style':'outset'}),
         
         html.Div([#html.Tr([
-            html.Tr([protein_names_button,triangulator_button,create_subgraph_fig_button,html.Td([subgraph_fig_edge_checkbox,subgraph_fig_pubmed_checkbox]),load_4,#dwpc_button, dwpc_weight, load_3,
+            html.Tr([protein_names_button,triangulator_button,create_subgraph_fig_button,html.Td([subgraph_fig_edge_checkbox,subgraph_fig_pubmed_checkbox,subgraph_fig_allrows_checkbox]),load_4,#dwpc_button, dwpc_weight, load_3,
                 dbc.Tooltip( #For protein-names button
                     "If \"Gene\" nodes are present, you may retrieve HGNC-Approved protein names for all genes.",
                     target="submit-protein-names",
@@ -624,7 +631,7 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
                 maxZoom=2,
                 elements=elements,
                 #responsive=True,
-                layout={'name':'breadthfirst'},
+                layout={'name':'spread'},
                 style={'display':'None'},
                 stylesheet=[
                     {'selector': 'node',
@@ -680,6 +687,10 @@ app.layout = html.Div(id="app-layout",style={'display':'flex','flex-direction':'
 
         html.Div(rf_5FCV_fig,style={'display':'flex','flex-direction':'row','align-items':'center','justify-content':'center'})
     ])
+
+@app.server.route("/user_guide")
+def get_report():
+    return flask.send_file("pages/20230703_mml_exemplar_annotated.html")
 
 selected_nodes = []
 selected_edges = []
@@ -918,7 +929,7 @@ def processInputText(text,lower=True):
     return l1
 
 @app.callback(
-    [Output('loading-1', 'children'),Output('clipboard-button','content'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('submit-subgraph-fig-val', 'style'),Output('subgraph-fig-edge-checkbox', 'style'),Output('subgraph-fig-pubmed-checkbox', 'style'),Output('dwpc-weight-select', 'style')],
+    [Output('loading-1', 'children'),Output('clipboard-button','content'),Output('answer-table', 'children'),Output('submit-dwpc-val', 'style'),Output('submit-protein-names', 'style'),Output('submit-triangulator-val', 'style'),Output('submit-subgraph-fig-val', 'style'),Output('subgraph-fig-edge-checkbox', 'style'),Output('subgraph-fig-pubmed-checkbox', 'style'),Output('subgraph-fig-allrows-checkbox', 'style'),Output('dwpc-weight-select', 'style')],
     [Input('submit-val', 'n_clicks'),Input('clipboard-button', 'n_clicks')],
     [State("kg-dropdown", 'value'),State('starts', 'value'),State('ends','value'),State("source-dropdown", 'value'), State("tail-dropdown", 'value'), State('tail-edge','value'),
     State('edge-checkbox', 'value'),State('metadata-checkbox', 'value'),State('pattern-select', 'value'),
@@ -1162,6 +1173,7 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                 {"margin-right":"1em",'display':'block'},
                 {"margin-right":"1em",'display':'block'},
                 {"margin-right":"1em",'display':'block'},
+                {"margin-right":"1em",'display':'block'},
                 {"margin":"1em",'display':'block', 'width':'69%'})
 
 @app.callback([Output('loading-start', 'children'),Output('start-map-output', 'value'),Output('start-map-div', 'style')],
@@ -1209,12 +1221,15 @@ def KGNodeMapper(end_n_clicks, end_terms, graph_db, end_label, e_map_val, e_map_
     State('cytoscape-fig','elements'),
     State('answers','selected_rows'),
     State('subgraph-fig-edge-checkbox','value'),
-    State('subgraph-fig-pubmed-checkbox','value')
+    State('subgraph-fig-pubmed-checkbox','value'),
+    State('subgraph-fig-allrows-checkbox','value')
     ],
     prevent_initial_call=True)
-def ShowAnswerSubgraph(subgraph_fig_clicks,answer_datatable,elements,selected_rows,edge_labels_option,pubmed_labels_option):
+def ShowAnswerSubgraph(subgraph_fig_clicks,answer_datatable,elements,selected_rows,edge_labels_option,pubmed_labels_option,all_rows_option):
     if subgraph_fig_clicks != 0:
-        if len(selected_rows)<1: return dash.no_update,{'display':'None'},dash.no_update
+        if len(selected_rows)<1: 
+            if len(all_rows_option) == 0:
+                return dash.no_update,{'display':'None'},dash.no_update,dash.no_update
         dff = pd.DataFrame(answer_datatable['props']['data'])
         if len(edge_labels_option) > 0:
             edge_labels_bool = edge_labels_option[0]
@@ -1224,7 +1239,11 @@ def ShowAnswerSubgraph(subgraph_fig_clicks,answer_datatable,elements,selected_ro
             pubmed_labels_bool = pubmed_labels_option[0]
         else: 
             pubmed_labels_bool = False
-        fig = VisualizeAnswerRow(dff,selected_rows,elements,edge_labels=edge_labels_bool,pubmed_comentions=pubmed_labels_bool)
+        if len(all_rows_option) > 0:
+            all_rows_bool = all_rows_option[0]
+        else: 
+            all_rows_bool = False
+        fig = VisualizeAnswerRow(dff,selected_rows,elements,edge_labels=edge_labels_bool,pubmed_comentions=pubmed_labels_bool,all_rows=all_rows_bool)
         style={'display':'block','width':'100%','height':'900px','background-color':'whitesmoke'}
         return fig[0],style,fig[1],{'display':'block'}
     else:
@@ -1619,6 +1638,8 @@ def test_path_search(
     if any_paths == None:
         print("Path not found")
         return f"Found 0 paths. Please revise query."
+    elif any_paths == "undefined":
+            return f"Test query timed out! Results may still exist."
     elif any_paths > 0:
         if any_paths == 1000:
             return f"Found >{str(any_paths)} paths!"
