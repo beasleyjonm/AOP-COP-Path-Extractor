@@ -2,6 +2,7 @@
 import pandas as pd
 import py2neo
 import neo4j
+from datetime import datetime
 #from neo4j import unit_of_work
 from matplotlib.pyplot import cm
 #import re
@@ -674,16 +675,24 @@ def TestQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,start_end_match
             if p_num < len(nodes)-1:
                 test_where_options = test_where_options + "AND "
                                            
-        print(test_query)
         neo4j_query = f"{neo4j_query}{test_query}{' ' if p_num == (len(nodes)-1) else ', '}"
         p_num += 1
 
-    neo4j_query = neo4j_query + test_where_options + f"RETURN n0_0.id LIMIT 1000"
+    neo4j_query = neo4j_query + test_where_options + f"RETURN n0_0.{KGNameIDProps[graph_db][0]} as n0_0 LIMIT 1000"
+    if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
+        neo4j_query = f"CALL apoc.cypher.runTimeboxed(\"{neo4j_query}\",null,10000) YIELD value RETURN value.n0_0"
+    print(neo4j_query)
     session = G.session()#.data()
-    matches = run_query(session,neo4j_query)
-    #any_matches = int(str([m for m in matches][0]).replace('<Record count(*)=','').replace('>',''))
-    any_matches = len([m for m in matches])
-    
+    timestamp1 = datetime.now().timestamp()
+    try:
+        matches = run_query(session,neo4j_query)
+        #any_matches = int(str([m for m in matches][0]).replace('<Record count(*)=','').replace('>',''))
+        any_matches = len([m for m in matches])
+    except:
+        any_matches = "undefined"
+    timestamp2 = datetime.now().timestamp()
+    if timestamp2-timestamp1 > 10:
+        any_matches = "undefined"
     return any_matches
 
 def getNodeAndEdgeLabels(graph_db):

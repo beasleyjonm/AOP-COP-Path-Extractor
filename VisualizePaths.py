@@ -95,7 +95,7 @@ def CytoscapeVisualize(df, selected_rows):
     ]
     return True
 
-def VisualizeAnswerRow(df,selected_rows,elements,edge_labels=True, pubmed_comentions=True):
+def VisualizeAnswerRow(df,selected_rows,elements,edge_labels=True, pubmed_comentions=True, all_rows=False):
     # if not selected_rows:
     #     return elements
     cols = df.columns
@@ -125,6 +125,8 @@ def VisualizeAnswerRow(df,selected_rows,elements,edge_labels=True, pubmed_coment
     added_nodes = {}
     node_colors = []
     added_edges = []
+    if all_rows == True:
+        selected_rows = [x for x in range(len(df))]
     for row in selected_rows:
         for col in node_cols:
             if df.at[row,col] != "?":
