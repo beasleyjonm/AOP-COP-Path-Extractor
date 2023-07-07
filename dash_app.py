@@ -1134,7 +1134,7 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                             index_of_end = metadata.find(",",index_of_start,-1)
                             print(index_of_end)
                             answersdf.loc[idx, columns[col]] = metadata[index_of_start:index_of_end]
-                        #answersdf[columns[col]] = np.where(answersdf[columns[col]] == "regulates",answersdf[columns[col+1]][str.rfind(answersdf[columns[col+1]],"object_direction_qualifier: ")+1:str.find(answersdf[columns[col+1]],",",start=str.rfind(answersdf[columns[col+1]],"object_direction_qualifier: "))],answersdf[columns[col]])
+                        
         if len(get_metadata) > 0:
             tooltip = [{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in range(len(answersdf.index))]
         else:
