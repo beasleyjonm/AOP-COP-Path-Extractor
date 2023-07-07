@@ -1095,7 +1095,7 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
     elif button_id == "submit-val" and submit_clicks:
         print("Running PATH SEARCH!")
         try:
-            ans = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=120000,limit_results=10000)
+            answersdf = Graphsearch(graph_db,start_nodes,end_nodes,searched_nodes_dict,searched_options_dict,searched_edges_dict,metadata_bool,timeout_ms=120000,limit_results=10000)
         except:
             return [[f"Either no answers were found or query execution time exceeded timeout limit (> 2 minutes). Please revise query patterns and try again."],
                 dash.no_update,
@@ -1107,8 +1107,8 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                 dash.no_update,
                 dash.no_update,
                 dash.no_update]
-                
-        answersdf = ans.drop_duplicates()
+        
+        answersdf = answersdf.drop_duplicates()
         esnd_columns=[i for i in answersdf.columns if "esnd" in i]
         answersdf['Max ESND'] = answersdf[esnd_columns].max(axis=1).to_list()
         maxESNDcol = answersdf.pop('Max ESND')
@@ -1116,6 +1116,18 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
         answersdf = answersdf.sort_values(by='Max ESND', ascending=True)
         columns = answersdf.columns
         size = len(answersdf.index)
+        if metadata_bool != False:
+            for idx,row in answersdf.iterrows():
+                for col in range(len(columns)):
+                    if "edge" in columns[col]:
+                        if row[columns[col]] == "regulates":
+                            metadata = row[columns[col+1]]
+                            index_of_start = metadata.find("object_direction_qualifier: ")+28
+                            print(index_of_start)
+                            index_of_end = metadata.find(",",index_of_start,-1)
+                            print(index_of_end)
+                            answersdf.loc[idx, columns[col]] = metadata[index_of_start:index_of_end]
+                        #answersdf[columns[col]] = np.where(answersdf[columns[col]] == "regulates",answersdf[columns[col+1]][str.rfind(answersdf[columns[col+1]],"object_direction_qualifier: ")+1:str.find(answersdf[columns[col+1]],",",start=str.rfind(answersdf[columns[col+1]],"object_direction_qualifier: "))],answersdf[columns[col]])
         if len(get_metadata) > 0:
             tooltip = [{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in range(len(answersdf.index))]
         else:
