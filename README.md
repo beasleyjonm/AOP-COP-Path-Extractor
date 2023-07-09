@@ -9,6 +9,9 @@ Construct Adverse/Clinical Outcome Pathway queries and extract path information 
   2. Create new Python 3 environment and install all required libraries in 'requirements.txt'
   3. Execute 'dash_app.py' script and click the link that appears in the terminal output to load ExEmPLAR in your favorite web browser
 
+## Adding support for new knowledge graphs:
+  ExEmPLAR can be extended to support queries on other knowledge graph databases. If you have suggestions for additional resources to be added to the app, please submit an Issue to this repo and we can collaborate to develop new features.
+  
 ## Description
 Biomedical Knowledge Graph Sources\
 We developed ExEmPLAR around the Neo4j graph database platform (https://neo4j.com/). The tool is designed to operate on knowledge graphs implemented in Neo4j such that any new Neo4j knowledge graph could be added with minimal development. Biomedical KGs currently implemented in ExEmPLAR include:\
