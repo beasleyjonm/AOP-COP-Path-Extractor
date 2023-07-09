@@ -6,9 +6,8 @@ Construct Adverse/Clinical Outcome Pathway queries and extract path information 
 
 ## Instructions for setting up local ExEmPLAR instance:
   1. Clone "AOP-COP-Path-Extractor" Github repository
-  2. Create new P
-
-
+  2. Create new Python 3 environment and install all required libraries in 'requirements.txt'
+  3. Execute 'dash_app.py' script and click the link that appears in the terminal output to load ExEmPLAR in your favorite web browser
 
 ## Description
 Biomedical Knowledge Graph Sources\
