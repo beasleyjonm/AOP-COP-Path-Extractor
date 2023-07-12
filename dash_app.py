@@ -1126,18 +1126,30 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                     if "edge" in columns[col]:
                         if row[columns[col]] == "regulates":
                             metadata = row[columns[col+1]]
-                            index_of_start = metadata.find("object_direction_qualifier: ")+28
-                            print(index_of_start)
-                            index_of_end = metadata.find(",",index_of_start,-1)
-                            print(index_of_end)
-                            answersdf.loc[idx, columns[col]] = metadata[index_of_start:index_of_end]
+                            if "object_direction_qualifier" in metadata:
+                                index_of_start = metadata.find("object_direction_qualifier: ")+28
+                                index_of_end = metadata.find(",",index_of_start,-1)
+                                answersdf.loc[idx, columns[col]] = metadata[index_of_start:index_of_end]
                         elif row[columns[col]] == "affects":
                             metadata = row[columns[col+1]]
-                            index_of_start = metadata.find("description: ")+13
-                            print(index_of_start)
-                            index_of_end = metadata.find(",",index_of_start,-1)
-                            print(index_of_end)
-                            answersdf.loc[idx, columns[col]] = metadata[index_of_start:index_of_end]
+                            if "description: " in metadata:
+                                index_of_start = metadata.find("description: ")+13
+                                index_of_end = metadata.find(",",index_of_start,-1)
+                                answersdf.loc[idx, columns[col]] = metadata[index_of_start:index_of_end]
+                            elif "qualified_predicate: " in metadata:
+                                index_of_start = metadata.find("object_direction_qualifier: ")+28
+                                index_of_end = metadata.find(",",index_of_start,-1)
+                                qualifier_string = metadata[index_of_start:index_of_end]
+                                
+                                index_of_start = metadata.find("qualified_predicate: ")+21
+                                index_of_end = metadata.find(",",index_of_start,-1)
+                                qualifier_string = qualifier_string + " " + metadata[index_of_start:index_of_end].replace("biolink:","")
+                                
+                                index_of_start = metadata.find("object_aspect_qualifier: ")+25
+                                index_of_end = metadata.find(",",index_of_start,-1)
+                                qualifier_string = qualifier_string + " " + metadata[index_of_start:index_of_end]
+
+                                answersdf.loc[idx, columns[col]] = qualifier_string
                         
         if len(get_metadata) > 0:
             tooltip = [{columns[col]: {'value': answersdf.iat[ind,col+1].replace(', ',',\\\n'), 'type': 'markdown'} if 'MetaData' in columns[col+1] else {} for col in range(len(columns)-1)} for ind in range(len(answersdf.index))]
