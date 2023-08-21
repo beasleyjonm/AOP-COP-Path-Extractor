@@ -483,7 +483,7 @@ def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_result
                     if ":" in str(any_starts):
                         display_where_options = display_where_options + f"any(x IN {str(any_starts)} WHERE x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{0}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                     else:
-                        display_where_options = display_where_options + f"toLower(n{0}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
+                        display_where_options = display_where_options + f"toLower(n{0}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(any_starts)} "
 
                 if len(not_starts) > 0:
                     if len(any_starts) > 0:
