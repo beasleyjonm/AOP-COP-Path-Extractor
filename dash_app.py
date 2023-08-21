@@ -1140,7 +1140,7 @@ def submit_path_search(submit_clicks,clipboard_clicks,graph_db,start_node_text,e
                                 qualifier_string = metadata[index_of_start:index_of_end]
                                 if len(qualifier_string) > 0:
                                     answersdf.loc[idx, columns[col]] = qualifier_string
-                            elif "infores:gtex" in metadata:
+                            elif ("infores:gtex" in metadata) or ("infores:text-mining" in metadata): 
                                 qualifier_string = ""
                                 if "qualified_predicate: " in metadata:
                                     index_of_start = metadata.find("qualified_predicate: ")+21
