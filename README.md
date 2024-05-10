@@ -2,7 +2,7 @@
 Construct Adverse/Clinical Outcome Pathway queries and extract path information from ROBOKOP or other Biomedical Knowledge Graphs
 ## Link to online ExEmPLAR application: https://www.exemplar.mml.unc.edu
 ## Visual User Guide: https://www.exemplar.mml.unc.edu/user_guide
-## Publication: To be included upon publication.
+## Publication: https://doi.org/10.1093/bioinformatics/btad779.
 
 ## Instructions for setting up local ExEmPLAR instance:
   1. Clone "AOP-COP-Path-Extractor" Github repository
