@@ -818,7 +818,7 @@ def checkNodeNameID(graph_db, terms, label):
     searched_list = ",".join(f'"{x.lower()}"' for x in terms)
     
     if graph_db in ["ROBOKOP","YOBOKOP","ComptoxAI"]:
-        query = f"WITH [{searched_list}] as terms MATCH (n{':'+ Label if Label != 'wildcard' else ''}) WHERE apoc.meta.type(n.{KGNameIDProps[graph_db][0]}) = 'STRING' AND any(term IN terms WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS term OR toLower(apoc.text.join(n.{KGNameIDProps[graph_db][2]}, ',')) CONTAINS term) CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, n.{KGNameIDProps[graph_db][2]}, degree LIMIT 10000"
+        query = f"WITH [{searched_list}] as terms MATCH (n{':'+ Label if Label != 'wildcard' else ''}) WHERE apoc.meta.cypher.type(n.{KGNameIDProps[graph_db][0]}) = 'STRING' AND any(term IN terms WHERE toLower(n.{KGNameIDProps[graph_db][0]}) CONTAINS term OR toLower(apoc.text.join(n.{KGNameIDProps[graph_db][2]}, ',')) CONTAINS term) CALL {'{'}WITH n RETURN apoc.node.degree(n) AS degree{'}'} RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, n.{KGNameIDProps[graph_db][2]}, degree LIMIT 10000"
     else:
         query = f"MATCH (n{':'+Label if Label != 'wildcard' else ''}) WHERE toLower(n.{KGNameIDProps[graph_db][0]}) IN [{searched_list}] OR toLower(apoc.text.join(n.{KGNameIDProps[graph_db][2]}, ',')) IN [{searched_list}] RETURN n.{KGNameIDProps[graph_db][0]}, n.{KGNameIDProps[graph_db][1]}, n.{KGNameIDProps[graph_db][2]} LIMIT 10000"
     
