@@ -211,7 +211,9 @@ def Graphsearch(graph_db,start_nodes,end_nodes,nodes,options,edges,get_metadata,
                             where_options = where_options + f"none(x IN {str(not_options)} WHERE x IN reduce(list = [], n IN n{i}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                         else:
                             where_options = where_options + f"NOT toLower(n{i}.{KGNameIDProps[graph_db][0]}) IN {str(not_options)} "
-
+                    if len(where_options)>6:
+                        if i!=(k-2):
+                            where_options = where_options + "AND " 
             else:
                 robokop_output.update({f"node{i}: {nodes[p][i]}":[]})
                 if get_metadata == True:
@@ -449,7 +451,9 @@ def DisplayQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,limit_result
                             display_where_options = display_where_options + f"none(x IN {str(not_options)} WHERE x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                         else:
                             display_where_options = display_where_options + f"NOT toLower(n{i}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_options)} "
-
+                    if len(display_where_options)>6:
+                        if i!=(k-2):
+                            display_where_options = display_where_options + "AND " 
             else:
                 display_query = display_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
         
@@ -594,7 +598,9 @@ def TestQuery(graph_db,start_nodes,end_nodes,nodes,options,edges,start_end_match
                             test_where_options = test_where_options + f"none(x IN {str(not_options)} WHERE x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][0]} | list + toLower(n)) OR x IN reduce(list = [], n IN n{i}_{p_num}.{KGNameIDProps[graph_db][2]} | list + toLower(n))) "
                         else:
                             test_where_options = test_where_options + f"NOT toLower(n{i}_{p_num}.{KGNameIDProps[graph_db][0]}) IN {str(not_options)} "
-
+                    if len(test_where_options)>6:
+                        if i!=(k-2):
+                            test_where_options = test_where_options + "AND " 
             else:
                 test_query = test_query + f"(n{i}_{p_num}{':'+nodes[p][i] if 'wildcard' not in nodes[p][i] else ''})"
         
